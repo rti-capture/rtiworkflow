@@ -1,0 +1,75 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface version="1.0">
+  <object class="tk.Frame" id="bottom">
+    <property name="height">100</property>
+    <property name="width">100</property>
+    <layout manager="grid">
+      <property name="propagate">True</property>
+      <property name="row">2</property>
+      <property name="sticky">s</property>
+    </layout>
+    <child>
+      <object class="ttk.Progressbar" id="progressbar">
+        <property name="length">300</property>
+        <property name="orient">horizontal</property>
+        <layout manager="pack">
+          <property name="pady">10</property>
+          <property name="propagate">True</property>
+          <property name="side">top</property>
+        </layout>
+      </object>
+    </child>
+  </object>
+  <object class="tk.Frame" id="menubar">
+    <property name="height">200</property>
+    <property name="width">200</property>
+    <layout manager="grid">
+      <property name="column">0</property>
+      <property name="propagate">True</property>
+      <property name="row">0</property>
+      <property name="sticky">nw</property>
+    </layout>
+    <child>
+      <object class="ttk.Menubutton" id="file">
+        <property name="text" translatable="yes">File</property>
+        <layout manager="pack">
+          <property name="anchor">w</property>
+          <property name="propagate">True</property>
+          <property name="side">left</property>
+        </layout>
+        <child>
+          <object class="tk.Menu" id="menu_3">
+            <property name="tearoff">false</property>
+            <child>
+              <object class="tk.Menuitem.Submenu" id="submenu_1_2">
+                <property name="label" translatable="yes">submenu_1_2</property>
+                <property name="tearoff">false</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="ttk.Menubutton" id="edit">
+        <property name="text" translatable="yes">Edit</property>
+        <layout manager="pack">
+          <property name="anchor">w</property>
+          <property name="propagate">True</property>
+          <property name="side">left</property>
+        </layout>
+        <child>
+          <object class="tk.Menu" id="menu_4">
+            <property name="tearoff">false</property>
+            <child>
+              <object class="tk.Menuitem.Submenu" id="submenu_3_4">
+                <property name="label" translatable="yes">submenu_3_4</property>
+                <property name="tearoff">false</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>
