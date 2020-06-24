@@ -38,7 +38,8 @@ class TestApp:
         self.hasupdate = True
 
         #create crop box manager
-        self.manager = CropBoxManager(master, self.label, menubar.winfo_height())
+        self.manager = CropBoxManager(master, self.label, menubar.winfo_height(), bottom.winfo_height())
+
         #frame.grid_forget()
         #for widget in builder.get_object('menubar',master).winfo_children():
         builder.connect_callbacks(self)
