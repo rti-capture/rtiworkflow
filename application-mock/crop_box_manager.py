@@ -45,10 +45,8 @@ class CropBoxManager():
         self.labely = self.label.winfo_y()
 
         self.minx = self.labelx
-        self.midx = self.labelx + self.labelwidth / 2
         self.maxx = self.labelx + self.labelwidth - self.croplineoffset
         self.miny = self.labely + self.menubaroffset
-        self.midy = self.labely + self.menubaroffset + self.labelheight / 2
         self.maxy = self.labely + self.menubaroffset + self.labelheight - self.croplineoffset
 
         self.croplineR.place(x=(self.croplineR.winfo_x() - changex), y=(self.croplineR.winfo_y() - changey))
@@ -65,22 +63,26 @@ class CropBoxManager():
         widget = event.widget
         if widget.position == "L":
             x = widget.winfo_x() - widget._drag_start_x + event.x
+            Rx = self.croplineR.winfo_x()
             x = x if x >= self.minx else self.minx
-            x = x if x <= self.midx - 2 else self.midx - 2
+            x = x if x <= Rx - self.croplineoffset - 2 else Rx - self.croplineoffset - 2
             y = widget.winfo_y()
         elif widget.position == "R":
             x = widget.winfo_x() - widget._drag_start_x + event.x
-            x = x if x >= self.midx + self.croplineoffset + 2 else self.midx + self.croplineoffset + 2
+            Lx = self.croplineL.winfo_x()
+            x = x if x >= Lx + self.croplineoffset + 2 else Lx + self.croplineoffset + 2
             x = x if x <= self.maxx else self.maxx
             y = widget.winfo_y()
         elif widget.position == "T":
             x = widget.winfo_x()
             y = widget.winfo_y() - widget._drag_start_y + event.y
+            By = self.croplineB.winfo_y()
             y = y if y >= self.miny else self.miny
-            y = y if y <= self.midy - 2 else self.midy - 2
+            y = y if y <= By - self.croplineoffset - 2 else By - self.croplineoffset - 2
         else:
             x = widget.winfo_x()
             y = widget.winfo_y() - widget._drag_start_y + event.y
-            y = y if y >= self.midy + self.croplineoffset + 2 else self.midy + self.croplineoffset + 2
+            Ty = self.croplineT.winfo_y()
+            y = y if y >= Ty + self.croplineoffset + 2 else Ty + self.croplineoffset + 2
             y = y if y <= self.maxy else self.maxy
         widget.place(x=x, y=y)

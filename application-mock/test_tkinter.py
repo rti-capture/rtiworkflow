@@ -11,6 +11,7 @@ class TestApp:
     def __init__(self, master):
         self.master = master
         self.hasupdate = False
+
         #setting up pygubu builder and adding frames from xml document
         self.builder = builder = pygubu.Builder()
         builder.add_resource_path(PROJECT_PATH)
