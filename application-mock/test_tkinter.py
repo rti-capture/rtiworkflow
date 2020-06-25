@@ -29,13 +29,23 @@ class TestApp:
         body.grid_columnconfigure(0, weight=1)
 
         #image for cropping
-        image = Image.open("test.gif")
+        image = Image.open("box-social.jpg")
         photo = ImageTk.PhotoImage(image)
         self.label = Label(body, image=photo)
+        self.label.configure(anchor="center")
         self.label.image = photo
         self.label.grid(row=0, column=0)
         master.update()
         self.hasupdate = True
+
+        print(photo.height())
+
+        #fitting canvas for an image at max 800x800
+        minheight = photo.height() + menubar.winfo_height() + bottom.winfo_height() + 70
+        minwidth = photo.width() + 70
+
+        master.geometry(str(minwidth) + "x" + str(minheight))
+        master.minsize(minwidth, minheight)
 
         #create crop box manager
         self.manager = CropBoxManager(master, self.label, menubar.winfo_height(), bottom.winfo_height())
@@ -57,6 +67,5 @@ if __name__ == '__main__':
     root.title("Test")
     root.grid_columnconfigure(0, weight=1)
     root.grid_rowconfigure(1, weight=1)
-    root.geometry("500x350")
     app = TestApp(root)
     app.run()

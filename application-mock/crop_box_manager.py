@@ -8,33 +8,55 @@ class CropBoxManager():
         self.labely = self.label.winfo_y()
         self.labelheight = self.label.winfo_height()
         self.labelwidth = self.label.winfo_width()
-
+        self.photo = self.label.image
+        self.labeloffsetx = self.labelwidth - self.photo.width()
+        self.labeloffsety = self.labelheight - self.photo.height()
         self.bottombroffset = bottombaroffset
         self.menubaroffset = menubaroffset
-        self.croplineoffset = 3
+        self.croplineoffset = 4
 
         #min and max values for croplines
         self.set_max_and_min()
 
-        self.croplineL = CropLine(parent, "L", self.labelx, self.labely + menubaroffset, self.labelheight, self.croplineoffset)
-        self.croplineR = CropLine(parent, "R", self.labelx + self.labelwidth - self.croplineoffset, self.labely + menubaroffset, self.labelheight, self.croplineoffset)
-        self.croplineT = CropLine(parent, "T", self.labelx, self.labely + menubaroffset, self.labelwidth, self.croplineoffset)
-        self.croplineB = CropLine(parent, "B", self.labelx, self.labely + self.labelheight + menubaroffset - self.croplineoffset, self.labelwidth, self.croplineoffset)
+        self.croplineL = CropLine(parent=parent,\
+                                  position="L",\
+                                  x=self.minx,\
+                                  y=self.labely + menubaroffset + self.labeloffsety / 2,\
+                                  length=self.photo.height(),\
+                                  croplineoffset=self.croplineoffset)
+        self.croplineR = CropLine(parent=parent,\
+                                  position="R",\
+                                  x=self.maxx,\
+                                  y=self.labely + menubaroffset + self.labeloffsety / 2,\
+                                  length=self.photo.height(),\
+                                  croplineoffset=self.croplineoffset)
+        self.croplineT = CropLine(parent=parent,\
+                                  position="T",\
+                                  x=self.labelx + self.labeloffsety / 2,\
+                                  y=self.miny,\
+                                  length=self.photo.width(),\
+                                  croplineoffset=self.croplineoffset)
+        self.croplineB = CropLine(parent=parent,\
+                                  position="B",\
+                                  x=self.labelx + self.labeloffsety / 2,\
+                                  y=self.maxy,\
+                                  length=self.photo.width(),\
+                                  croplineoffset=self.croplineoffset)
 
-        self.croplineL.bind("<Button-1>", self.on_start)
-        self.croplineL.bind("<B1-Motion>", self.on_drag)
-        self.croplineR.bind("<Button-1>", self.on_start)
-        self.croplineR.bind("<B1-Motion>", self.on_drag)
-        self.croplineT.bind("<Button-1>", self.on_start)
-        self.croplineT.bind("<B1-Motion>", self.on_drag)
-        self.croplineB.bind("<Button-1>", self.on_start)
-        self.croplineB.bind("<B1-Motion>", self.on_drag)
+        self.applylisteners(self.croplineL)
+        self.applylisteners(self.croplineR)
+        self.applylisteners(self.croplineT)
+        self.applylisteners(self.croplineB)
 
         self.var = StringVar()
-        self.var.set("x=0,y=0,h=" + str(self.labelheight - self.croplineoffset * 2) + ",w=" \
-                     + str(self.labelwidth - self.croplineoffset * 2))
+        self.var.set("x=0,y=0,h=" + str(self.photo.height()) + ",w=" \
+                     + str(self.photo.width()))
         l = Label(parent, textvariable=self.var)
-        l.place(x=30, y=30)
+        l.place(x=7, y=30)
+
+    def applylisteners(self, cropline):
+        cropline.bind("<Button-1>", self.on_start)
+        cropline.bind("<B1-Motion>", self.on_drag)
 
     def move_crop_lines(self):
         changex = self.labelx - self.label.winfo_x()
@@ -50,10 +72,10 @@ class CropBoxManager():
         self.croplineB.place(x=(self.croplineB.winfo_x() - changex), y=(self.croplineB.winfo_y() - changey))
 
     def set_max_and_min(self):
-        self.minx = self.labelx
-        self.maxx = self.labelx + self.labelwidth - self.croplineoffset
-        self.miny = self.labely + self.menubaroffset
-        self.maxy = self.labely + self.menubaroffset + self.labelheight - self.croplineoffset
+        self.minx = self.labelx + self.labeloffsetx / 2 - self.croplineoffset
+        self.maxx = self.labelx + self.labelwidth - self.labeloffsetx / 2
+        self.miny = self.labely + self.menubaroffset + self.labeloffsety / 2 - self.croplineoffset
+        self.maxy = self.labely + self.labelheight + self.menubaroffset - self.labeloffsety / 2
 
     def on_start(self, event):
         widget = event.widget
@@ -86,8 +108,8 @@ class CropBoxManager():
             Ty = self.croplineT.winfo_y()
             y = y if y >= Ty + self.croplineoffset + 2 else Ty + self.croplineoffset + 2
             y = y if y <= self.maxy else self.maxy
-        self.var.set("x=" + str(self.croplineL.winfo_x() - int(((self.parent.winfo_width() - self.labelwidth) / 2))) \
-                     + ",y=" + str(self.croplineT.winfo_y() - int(((self.parent.winfo_height() - self.labelheight + self.menubaroffset - self.bottombroffset) / 2))) \
+        self.var.set("x=" + str(self.croplineL.winfo_x() + self.croplineoffset - int(((self.parent.winfo_width() - self.photo.width()) / 2))) \
+                     + ",y=" + str(self.croplineT.winfo_y() + self.croplineoffset - int(((self.parent.winfo_height() - self.photo.height() + self.menubaroffset - self.bottombroffset) / 2))) \
                      + ",w=" + str((self.croplineR.winfo_x() - self.croplineL.winfo_x() - self.croplineoffset)) \
                      + ",h=" + str((self.croplineB.winfo_y() - self.croplineT.winfo_y() - self.croplineoffset)))
         self.parent.update_idletasks()
