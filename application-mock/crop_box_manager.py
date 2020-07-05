@@ -15,7 +15,7 @@ class CropBoxManager():
         self.menubaroffset = menubaroffset
         self.croplineoffset = 4
 
-        #min and max values for croplines
+        #sets intial min and max values for croplines
         self.set_max_and_min()
 
         self.croplineL = CropLine(parent=parent,\
@@ -84,16 +84,17 @@ class CropBoxManager():
 
     def on_drag(self, event):
         widget = event.widget
+        offset = 2
         if widget.position == "L":
             x = widget.winfo_x() - widget._drag_start_x + event.x
             Rx = self.croplineR.winfo_x()
             x = x if x >= self.minx else self.minx
-            x = x if x <= Rx - self.croplineoffset - 2 else Rx - self.croplineoffset - 2
+            x = x if x <= Rx - self.croplineoffset - offset else Rx - self.croplineoffset - offset
             y = widget.winfo_y()
         elif widget.position == "R":
             x = widget.winfo_x() - widget._drag_start_x + event.x
             Lx = self.croplineL.winfo_x()
-            x = x if x >= Lx + self.croplineoffset + 2 else Lx + self.croplineoffset + 2
+            x = x if x >= Lx + self.croplineoffset + offset else Lx + self.croplineoffset + offset
             x = x if x <= self.maxx else self.maxx
             y = widget.winfo_y()
         elif widget.position == "T":
@@ -101,16 +102,17 @@ class CropBoxManager():
             y = widget.winfo_y() - widget._drag_start_y + event.y
             By = self.croplineB.winfo_y()
             y = y if y >= self.miny else self.miny
-            y = y if y <= By - self.croplineoffset - 2 else By - self.croplineoffset - 2
+            y = y if y <= By - self.croplineoffset - offset else By - self.croplineoffset - offset
         else:
             x = widget.winfo_x()
             y = widget.winfo_y() - widget._drag_start_y + event.y
             Ty = self.croplineT.winfo_y()
-            y = y if y >= Ty + self.croplineoffset + 2 else Ty + self.croplineoffset + 2
+            y = y if y >= Ty + self.croplineoffset + offset else Ty + self.croplineoffset + offset
             y = y if y <= self.maxy else self.maxy
         self.var.set("x=" + str(self.croplineL.winfo_x() + self.croplineoffset - int(((self.parent.winfo_width() - self.photo.width()) / 2))) \
                      + ",y=" + str(self.croplineT.winfo_y() + self.croplineoffset - int(((self.parent.winfo_height() - self.photo.height() + self.menubaroffset - self.bottombroffset) / 2))) \
                      + ",w=" + str((self.croplineR.winfo_x() - self.croplineL.winfo_x() - self.croplineoffset)) \
                      + ",h=" + str((self.croplineB.winfo_y() - self.croplineT.winfo_y() - self.croplineoffset)))
+        #updates string var
         self.parent.update_idletasks()
         widget.place(x=x, y=y)

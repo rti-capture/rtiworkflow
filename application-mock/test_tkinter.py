@@ -2,6 +2,7 @@ import os
 import pygubu
 from crop_box_manager import *
 from tkinter import *
+from tkinter import filedialog
 from pil import Image, ImageTk
 
 PROJECT_PATH = os.path.dirname(__file__)
@@ -35,17 +36,17 @@ class TestApp:
         self.label.configure(anchor="center")
         self.label.image = photo
         self.label.grid(row=0, column=0)
+
+        #fitting canvas for image (should be 800x800 at most)
         master.update()
-        self.hasupdate = True
-
-        print(photo.height())
-
-        #fitting canvas for an image at max 800x800
-        minheight = photo.height() + menubar.winfo_height() + bottom.winfo_height() + 70
-        minwidth = photo.width() + 70
+        windowspace = 70
+        minheight = photo.height() + menubar.winfo_height() + bottom.winfo_height() + windowspace
+        minwidth = photo.width() + windowspace
 
         master.geometry(str(minwidth) + "x" + str(minheight))
         master.minsize(minwidth, minheight)
+        master.update()
+        self.hasupdate = True
 
         #create crop box manager
         self.manager = CropBoxManager(master, self.label, menubar.winfo_height(), bottom.winfo_height())
@@ -56,7 +57,7 @@ class TestApp:
 
     def place_croplines(self, event):
         if self.hasupdate:
-            self.master.update() #catches in the case of maximising screen
+            self.master.update() #catches in the case of maximising window
             self.manager.move_crop_lines()
 
     def run(self):
@@ -65,7 +66,9 @@ class TestApp:
 if __name__ == '__main__':
     root = Tk()
     root.title("Test")
+    root.geometry("500x300")
     root.grid_columnconfigure(0, weight=1)
     root.grid_rowconfigure(1, weight=1)
+    #root.filename = filedialog.askdirectory() calls file manager and set returns directory
     app = TestApp(root)
     app.run()
