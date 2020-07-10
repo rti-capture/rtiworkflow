@@ -49,8 +49,8 @@ class CropBoxManager():
         self.applylisteners(self.cropline_B)
 
         self.var = StringVar()
-        self.var.set("x=0,y=0,h=" + str(self.photo.height()) + ",w=" \
-                     + str(self.photo.width()))
+        self.var.set("x=0,y=0,w=" + str(self.photo.width()) + ",h=" + str(self.photo.height()))
+        self.crop = "0 0 " + str(self.photo.width()) + str(self.photo.height())
         l = Label(parent, textvariable=self.var)
         l.place(x=7, y=30)
 
@@ -109,10 +109,15 @@ class CropBoxManager():
             Ty = self.cropline_T.winfo_y()
             y = y if y >= Ty + self.cropline_offset + offset else Ty + self.cropline_offset + offset
             y = y if y <= self.max_y else self.max_y
-        self.var.set("x=" + str(self.cropline_L.winfo_x() + self.cropline_offset - int(((self.parent.winfo_width() - self.photo.width()) / 2))) \
-                     + ",y=" + str(self.cropline_T.winfo_y() + self.cropline_offset - int(((self.parent.winfo_height() - self.photo.height() + self.menubar_offset - self.bottombr_offset) / 2))) \
-                     + ",w=" + str((self.cropline_R.winfo_x() - self.cropline_L.winfo_x() - self.cropline_offset)) \
-                     + ",h=" + str((self.cropline_B.winfo_y() - self.cropline_T.winfo_y() - self.cropline_offset)))
+        crop_x = str(self.cropline_L.winfo_x() + self.cropline_offset - int(((self.parent.winfo_width() - self.photo.width()) / 2)))
+        crop_y = str(self.cropline_T.winfo_y() + self.cropline_offset - int(((self.parent.winfo_height() - self.photo.height() + self.menubar_offset - self.bottom_bar_offset) / 2)))
+        crop_w = str((self.cropline_R.winfo_x() - self.cropline_L.winfo_x() - self.cropline_offset))
+        crop_h = str((self.cropline_B.winfo_y() - self.cropline_T.winfo_y() - self.cropline_offset))
+        self.var.set("x=" + crop_x + ",y=" + crop_y + ",w=" + crop_w + ",h=" + crop_h)
+        self.crop = crop_x + " " + crop_y + " " + crop_w + " " + crop_h
         #updates string var
         self.parent.update_idletasks()
         widget.place(x=x, y=y)
+
+    def return_crop(self):
+        return self.crop

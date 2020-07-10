@@ -18,6 +18,8 @@ class TestApp:
         self.output_directory = None
         self.images_directory = None
         self.output_name = None
+        self.lp_directory = None
+        self.ptm_directory = None
         self.has_update = False
 
         #setting up pygubu builder and adding frames from xml document
@@ -37,6 +39,8 @@ class TestApp:
 
         self.master.update()
         self.center(master)
+
+        self.add_cropping()
 
         #frame.grid_forget()
         builder_main.connect_callbacks(self)
@@ -64,7 +68,6 @@ class TestApp:
         config_window = button_bar
 
         self.builder_config.connect_callbacks(self)
-        #messagebox.showinfo(title="Example", message="Test")
 
     def select_output_directory(self):
         directory = filedialog.askdirectory()
@@ -103,20 +106,20 @@ class TestApp:
 
         images = []
         for file in os.listdir(self.images_directory):
-            if file.endswith(".jpeg") or file.endswith(".jpg"):
+            if file.endswith(".jpg"):
                 images.append(os.path.join(self.images_directory, file))
 
         counter = 0
         for image in images:
             shutil.copy(image, self.output_directory + separator + self.output_name + separator + "original-captures")
             shutil.copy(image, self.output_directory + separator + self.output_name + separator + "jpeg-exports"  \
-                        + separator + "{0:0=3d}".format(counter))
+                        + separator + "{0:0=3d}".format(counter) + ".jpg")
             counter += 1
-
+        messagebox.showinfo(message="Importing has finished")
 
     def confirm_config(self):
-        #self.import_files()
-        pass
+        self.import_files()
+        #pass
 
     def cancel_config(self):
         self.window.destroy()
@@ -172,8 +175,5 @@ if __name__ == '__main__':
     """
     call ptm fit
     subprocess.run("C:\\Users\\ben_t\\OneDrive\\Desktop\\kirk-internship\\Test\\ptmfit -i C:\\Users\\ben_t\\OneDrive\\Desktop\\kirk-internship\\Test\\test\\assembly-files\\test_0000.lp -o C:\\Users\\ben_t\\OneDrive\\Desktop\\kirk-internship\\Test\\test\\finished-files\\ptm.ptm", cwd="C:\\Users\\ben_t\\OneDrive\\Desktop\\kirk-internship\\Test\\test\\jpeg-exports")
-    
-    use filedialog to determine file pathing
-    root.filename = filedialog.askdirectory() calls file manager and set returns directory
     """
     app = TestApp(root)
