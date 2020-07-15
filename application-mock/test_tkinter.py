@@ -128,7 +128,16 @@ class TestApp:
         entry.insert(0, self.ptm)
         entry.configure(state='readonly')
 
+    def is_form_correct(self):
+        entry_list = ['output_entry', 'name_entry', 'images_entry', 'lp_entry', 'ptm_entry']
+        for entry in entry_list:
+            if self.builder_config.get_object(entry).get() == "":
+                return False
+        return True
+
     def confirm_config(self):
+        if not self.is_form_correct():
+            return
         self.output_name = self.builder_config.get_object('name_entry').get()
         self.output_directory = self.output_directory + self.separator + self.output_name
         self.create_folder_hierarchy()
@@ -139,7 +148,6 @@ class TestApp:
         self.images_directory = None
         self.lp = None
         self.ptm = None
-        # pass
 
     def create_folder_hierarchy(self):
         folder_list = ['assembly-files', 'finished-files', 'jpeg-exports', 'original-captures']
@@ -221,8 +229,4 @@ if __name__ == '__main__':
     root.iconbitmap('arrow.ico')
     root.grid_rowconfigure(1, weight=1)
     root.grid_columnconfigure(0, weight=1)
-    '''
-    call ptm fit
-    subprocess.run('C:\\Users\\ben_t\\OneDrive\\Desktop\\kirk-internship\\Test\\ptmfit -i C:\\Users\\ben_t\\OneDrive\\Desktop\\kirk-internship\\Test\\test\\assembly-files\\test_0000.lp -o C:\\Users\\ben_t\\OneDrive\\Desktop\\kirk-internship\\Test\\test\\finished-files\\ptm.ptm', cwd='C:\\Users\\ben_t\\OneDrive\\Desktop\\kirk-internship\\Test\\test\\jpeg-exports')
-    '''
     app = TestApp(root)
