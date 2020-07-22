@@ -1,7 +1,7 @@
 from crop_line import *
 
 class CropBoxManager():
-    def __init__(self, parent, label, menubar_offset, bottom_bar_offset):
+    def __init__(self, parent, label, menubar_offset, bottom_bar_offset, scale):
         self.parent = parent
         self.label = label
         self.label_x = self.label.winfo_x()
@@ -13,6 +13,7 @@ class CropBoxManager():
         self.label_offset_y = self.label_height - self.photo.height()
         self.bottom_bar_offset = bottom_bar_offset
         self.menubar_offset = menubar_offset
+        self.scale = scale
         self.cropline_offset = 4
 
         #sets intial min and max values for croplines
@@ -50,17 +51,17 @@ class CropBoxManager():
 
         self.var = StringVar()
         self.var.set('x=0,y=0,w=' + str(self.photo.width()) + ',h=' + str(self.photo.height()))
-        self.crop = '0 0 ' + str(self.photo.width()) + str(self.photo.height())
-        l = Label(parent, textvariable=self.var)
-        l.place(x=7, y=30)
+        self.crop = '0 0 ' + str(int(self.photo.width() / scale)) + ' ' + str(int(self.photo.height() / scale))
+        self.values = Label(parent, textvariable=self.var)
+        self.values.place(x=7, y=30)
 
     def applylisteners(self, cropline):
         cropline.bind('<Button-1>', self.on_start)
         cropline.bind('<B1-Motion>', self.on_drag)
 
     def move_crop_lines(self):
-        change_x = self.labelx - self.label.winfo_x()
-        change_y = self.labely - self.label.winfo_y()
+        change_x = self.label_x - self.label.winfo_x()
+        change_y = self.label_y - self.label.winfo_y()
         self.label_x = self.label.winfo_x()
         self.label_y = self.label.winfo_y()
 
@@ -114,10 +115,18 @@ class CropBoxManager():
         crop_w = str((self.cropline_R.winfo_x() - self.cropline_L.winfo_x() - self.cropline_offset))
         crop_h = str((self.cropline_B.winfo_y() - self.cropline_T.winfo_y() - self.cropline_offset))
         self.var.set('x=' + crop_x + ',y=' + crop_y + ',w=' + crop_w + ',h=' + crop_h)
-        self.crop = crop_x + ' ' + crop_y + ' ' + crop_w + ' ' + crop_h
+        self.crop = str(int(int(crop_x) / self.scale)) + ' ' + str(int(int(crop_y) / self.scale)) + ' ' + str(int(int(crop_w) / self.scale)) + ' ' + str(int(int(crop_h) / self.scale))
         #updates string var
         self.parent.update_idletasks()
         widget.place(x=x, y=y)
+
+    def clear_cropping(self):
+        self.values.destroy()
+        self.label.destroy()
+        self.cropline_L.destroy()
+        self.cropline_R.destroy()
+        self.cropline_T.destroy()
+        self.cropline_B.destroy()
 
     def return_crop(self):
         return self.crop
