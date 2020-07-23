@@ -1,11 +1,11 @@
-'''
+"""
 TODO:
 allow to cancel prior to processing
     - delete folders and files created
 add error checking for configuration values
     - custom exceptions
 create progressbar for processing
-'''
+"""
 
 import os
 import pygubu
@@ -34,14 +34,17 @@ class TestApp:
         self.output_name = None
         self.lp = None
         self.ptm = None
+        self.inter_capture_delay = 10
         self.has_update = False
         self.manager = None
         self.best_fit_image_index = None
         self.best_fit_image_images = []
         self.cropping_dimensions = []
         self.folders = []
+        self.crop_box_listener = None
         self.expected_counts = {65, 76, 128}
         self.image_scale = None
+        self.builder_config = None
 
         if os.name == 'nt':
             self.separator = '\\'
@@ -89,6 +92,7 @@ class TestApp:
         button_bar = self.builder_config.get_object('button_bar', self.window)
         config_window = config
         config_window = button_bar
+        self.builder_config.get_object('inter_capture_delay', self.window).insert(0, 1)
 
         self.builder_config.connect_callbacks(self)
 
@@ -132,23 +136,19 @@ class TestApp:
     def confirm_config(self):
         if not self.is_config_valid():
             return
-        self.output_directory = self.builder_config.get_object('output_entry').get()
-        self.output_name = self.builder_config.get_object('name_entry').get()
-        self.images_directory = self.builder_config.get_object('images_entry').get()
-        self.lp = self.builder_config.get_object('lp_entry').get()
-        self.ptm = self.builder_config.get_object('ptm_entry').get()
-        self.find_best_image()
-        self.import_images()
-        self.create_crop_box()
-        messagebox.showinfo(message='Application configurations have been setup successfully')
-        self.window.destroy()
+        #self.output_directory = self.builder_config.get_object('output_entry').get()
+        #self.output_name = self.builder_config.get_object('name_entry').get()
+        #self.images_directory = self.builder_config.get_object('images_entry').get()
+        #self.lp = self.builder_config.get_object('lp_entry').get()
+        #self.ptm = self.builder_config.get_object('ptm_entry').get()
+        #self.inter_capture_delay = int(self.builder_config.get_object('inter_capture_delay', self.window).get())
+        #self.read_lp_file()
+        #self.import_images()
+        #self.create_crop_box()
+        #messagebox.showinfo(message='Application configurations have been setup successfully')
+        #self.window.destroy()
 
     def cancel_config(self):
-        self.output_directory = None
-        self.output_name = None
-        self.images_directory = None
-        self.lp = None
-        self.ptm = None
         self.window.destroy()
 
     def process_btn_click(self):
@@ -157,23 +157,38 @@ class TestApp:
         del self.best_fit_image_images[0]
         self.master.minsize(0, 0)
         if len(self.best_fit_image_images) == 0:
-            self.body.unbind('<Configure>', self.shift_crop_lines)
-            # self.process()
-            # self.manager = None
-            # self.output_directory = None
-            # self.output_name = None
-            # self.images_directory = None
-            # self.lp = None
-            # self.ptm = None
+            self.body.unbind('<Configure>', self.crop_box_listener)
+            self.process()
+            self.manager = None
+            self.output_directory = None
+            self.output_name = None
+            self.images_directory = None
+            self.lp = None
+            self.ptm = None
         else:
             self.create_crop_box()
 
     def is_config_valid(self):
-        # check for if theyre valid paths and if images are all of the same type or total is mod zero of the expected counts
-        entry_list = ['output_entry', 'name_entry', 'images_entry', 'lp_entry', 'ptm_entry']
+        # check for valid paths and if images are all of the same type or total is mod zero of the expected counts
+        # replace false returns with excepts
+        entry_list = ['output_entry', 'name_entry', 'images_entry', 'lp_entry', 'ptm_entry', 'inter_capture_delay']
         for entry in entry_list:
-            if self.builder_config.get_object(entry).get() == "":
+            entry_contents = self.builder_config.get_object(entry).get()
+            if entry_contents == '':
                 return False
+            if entry == 'inter_capture_delay':
+                if not entry_contents.isdigit():
+                    return False
+                elif int(entry_contents) >= 0 or int(entry_contents) <= 100:
+                    return False
+            else:
+                if entry != 'name_entry':
+                    if not os.path.exists(entry_contents):
+                        return False
+            if entry == 'ptm_entry':
+                ptm_command = entry_contents + ' -h'
+                output = subprocess.check_output(ptm_command)
+                # check output for correct -h command
         return True
 
     def create_folder_hierarchy(self, output_name):
@@ -182,17 +197,21 @@ class TestApp:
         for folder in folder_list:
             os.makedirs(self.output_directory + self.separator + output_name + self.separator + folder)
 
-    def find_best_image(self):
+    def read_lp_file(self):
         best_fit_image_value = 3
         lines = open(self.lp, 'r').readlines()
 
         for line in lines:
             values = (line.rstrip()).split(' ')
             if len(values) != 1:
-                value = abs(Decimal(values[1])) + abs(Decimal(values[2])) + abs(1 - Decimal(values[3]))
-                if value < best_fit_image_value:
-                    self.best_fit_image_index = lines.index(line)
-                    best_fit_image_value = value
+                if values[1].isdecimal() and values[2].isdecimal() and values[3].isdecimal():
+                    value = abs(Decimal(values[1])) + abs(Decimal(values[2])) + abs(1 - Decimal(values[3]))
+                    if value < best_fit_image_value:
+                        self.best_fit_image_index = lines.index(line)
+                        best_fit_image_value = value
+                else:
+                    # throw except for improper lp structure
+                    pass
 
     def import_images(self):
         first = True
@@ -216,13 +235,13 @@ class TestApp:
                 latest_taken = image_taken
                 prime = False
 
-            latest_threshold = latest_taken + timedelta(seconds=10)
+            latest_threshold = latest_taken + timedelta(seconds=self.inter_capture_delay)
             if image_taken > latest_threshold:
                 if no_in_folder in self.expected_counts:
                     pass
                 else:
                     pass
-                next_suffix += 1
+                next_suffix += self.next_suffix()
                 first = True
 
             if first:
@@ -267,10 +286,12 @@ class TestApp:
             new_lp = self.output_directory + self.separator + folder + self.separator + 'assembly-files'
             shutil.copy(self.lp, new_lp)
             ptm_command = self.ptm + ' -i ' + new_lp + self.separator + os.path.basename(os.path.normpath(self.lp)) + \
-                          ' -o ' + self.output_directory + self.separator + folder + self.separator + 'finished-files' + self.separator + folder + '.ptm'
+                          ' -o ' + self.output_directory + self.separator + folder + self.separator + \
+                          'finished-files' + self.separator + folder + '.ptm'
             # 'crop ' + self.cropping_dimensions[self.folders.index(folder)]
-            subprocess.run(ptm_command,
-                           cwd=self.output_directory + self.separator + folder + self.separator + 'jpeg-exports')
+            log = subprocess.check_output(ptm_command,
+                                          cwd=self.output_directory + self.separator + folder + self.separator + 'jpeg-exports')
+            # check log output of ptmfit to see if it was successful
             messagebox.showinfo(message='Importing has finished')
 
     @staticmethod
@@ -289,7 +310,7 @@ class TestApp:
 
     def create_crop_box(self):
         if self.manager is None:
-            self.body.bind('<Configure>', self.shift_crop_lines)
+            self.crop_box_listener = self.body.bind('<Configure>', self.shift_crop_lines)
 
         # image for cropping
         image = Image.open(self.best_fit_image_images[0])

@@ -149,9 +149,11 @@
           <property name="sticky">e</property>
         </layout>
         <child>
-          <object class="tk.Spinbox" id="spinbox_1">
+          <object class="tk.Spinbox" id="inter_capture_delay">
             <property name="from_">0</property>
             <property name="increment">1</property>
+            <property name="insertborderwidth">0</property>
+            <property name="textvariable">string:StringVar().set(10)</property>
             <property name="to">100</property>
             <property name="width">8</property>
             <layout manager="pack">
