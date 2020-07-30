@@ -146,7 +146,6 @@
           <property name="column">1</property>
           <property name="propagate">True</property>
           <property name="row">2</property>
-          <property name="sticky">e</property>
         </layout>
         <child>
           <object class="tk.Spinbox" id="inter_capture_delay">
@@ -169,7 +168,18 @@
             <property name="text" translatable="yes">Inter Capture Delay(s)</property>
             <layout manager="pack">
               <property name="propagate">True</property>
-              <property name="side">right</property>
+              <property name="side">left</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="ttk.Combobox" id="image_type">
+            <property name="state">readonly</property>
+            <property name="values">.jpg .NEF .TIF .CRW</property>
+            <property name="width">15</property>
+            <layout manager="pack">
+              <property name="propagate">True</property>
+              <property name="side">left</property>
             </layout>
           </object>
         </child>

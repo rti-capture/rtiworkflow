@@ -9,7 +9,7 @@
       <property name="sticky">s</property>
     </layout>
     <child>
-      <object class="ttk.Progressbar" id="progressbar">
+      <object class="ttk.Progressbar" id="progress_bar">
         <property name="length">300</property>
         <property name="orient">horizontal</property>
         <layout manager="pack">

@@ -1,8 +1,8 @@
 """
 TODO:
+process RAW image types to tiffs
 allow to cancel prior to processing
     - delete folders and files created
-create progressbar for processing
 """
 
 import os
@@ -30,6 +30,7 @@ class TestApp:
         self.window = None
         self.output_directory = None
         self.images_directory = None
+        self.image_type = None
         self.output_name = None
         self.lp = None
         self.ptm = None
@@ -51,11 +52,11 @@ class TestApp:
             self.separator = '/'
 
         # setting up pygubu builder and adding frames from xml document
-        builder_main = pygubu.Builder()
-        builder_main.add_resource_path(PROJECT_PATH)
-        builder_main.add_from_file(PROJECT_UI_MAIN)
-        self.menubar = builder_main.get_object('menubar', master)
-        self.bottom = builder_main.get_object('bottom', master)
+        self.builder_main = pygubu.Builder()
+        self.builder_main.add_resource_path(PROJECT_PATH)
+        self.builder_main.add_from_file(PROJECT_UI_MAIN)
+        self.menubar = self.builder_main.get_object('menubar', master)
+        self.bottom = self.builder_main.get_object('bottom', master)
         self.main_window = self.menubar
         self.main_window = self.bottom
 
@@ -68,7 +69,7 @@ class TestApp:
         self.master.update()
         self.center(master)
 
-        builder_main.connect_callbacks(self)
+        self.builder_main.connect_callbacks(self)
         self.main_window.mainloop()
 
     def open_config(self):
@@ -92,6 +93,7 @@ class TestApp:
         config_window = config
         config_window = button_bar
         self.builder_config.get_object('inter_capture_delay', self.window).insert(0, 1)
+        self.builder_config.get_object('image_type', self.window).current(0)
 
         self.builder_config.connect_callbacks(self)
 
@@ -141,6 +143,7 @@ class TestApp:
         self.output_directory = self.builder_config.get_object('output_entry').get()
         self.output_name = self.builder_config.get_object('name_entry').get()
         self.images_directory = self.builder_config.get_object('images_entry').get()
+        self.image_type = self.builder_config.get_object('image_type').get()
         self.lp = self.builder_config.get_object('lp_entry').get()
         self.ptm = self.builder_config.get_object('ptm_entry').get()
         self.inter_capture_delay = int(self.builder_config.get_object('inter_capture_delay', self.window).get())
@@ -154,25 +157,25 @@ class TestApp:
         self.window.destroy()
 
     def process_btn_click(self):
-        self.cropping_dimensions.append(self.manager.return_crop())
-        self.manager.clear_cropping()
-        del self.best_fit_image_images[0]
-        self.master.minsize(0, 0)
-        if len(self.best_fit_image_images) == 0:
-            self.body.unbind('<Configure>', self.crop_box_listener)
-            self.process()
-            self.manager = None
-            self.output_directory = None
-            self.output_name = None
-            self.images_directory = None
-            self.lp = None
-            self.ptm = None
-        else:
-            self.create_crop_box()
+        if self.output_directory is not None:
+            self.cropping_dimensions.append(self.manager.return_crop())
+            self.manager.clear_cropping()
+            del self.best_fit_image_images[0]
+            self.master.minsize(0, 0)
+            if len(self.best_fit_image_images) == 0:
+                self.body.unbind('<Configure>', self.crop_box_listener)
+                self.process()
+                self.manager = None
+                self.output_directory = None
+                self.output_name = None
+                self.images_directory = None
+                self.lp = None
+                self.ptm = None
+            else:
+                self.create_crop_box()
 
     def is_config_valid(self):
         # check for valid paths and if images are all of the same type or total is mod zero of the expected counts
-        # replace false returns with excepts
         config_object_list = ['output_entry', 'name_entry', 'inter_capture_delay', 'images_entry', 'lp_entry', 'ptm_entry']
         for config_object in config_object_list:
             entry_contents = self.builder_config.get_object(config_object).get()
@@ -218,6 +221,7 @@ class TestApp:
                     pass
 
     def import_images(self):
+        # raw images need to be converted in jpeg-exports
         first = True
         prime = True
         folder_name = None
@@ -229,7 +233,7 @@ class TestApp:
         next_suffix = self.next_suffix()
 
         for file in os.listdir(self.images_directory):
-            if file.endswith('.jpg'):  # or file.endswith('.jpeg'):
+            if file.endswith(self.image_type):
                 images.append(os.path.join(self.images_directory, file))
 
         for image in images:
@@ -259,7 +263,7 @@ class TestApp:
                 if latest_taken < image_taken:
                     latest_taken = image_taken
 
-            file_name = '{0:0=3d}'.format(no_in_folder) + '.jpg'
+            file_name = '{0:0=3d}'.format(no_in_folder) + self.image_type
             copy_original = self.output_directory + self.separator + folder_name + self.separator + 'original-captures'
             copy_export = self.output_directory + self.separator + folder_name + self.separator + 'jpeg-exports' + self.separator + file_name
             shutil.copy(image, copy_original)
@@ -287,6 +291,8 @@ class TestApp:
         return next_suffix
 
     def process(self):
+        progress_bar = self.builder_main.get_object('progress_bar')
+        increment = 100 / len(self.folders)
         for folder in self.folders:
             new_lp = self.output_directory + self.separator + folder + self.separator + 'assembly-files'
             shutil.copy(self.lp, new_lp)
@@ -296,9 +302,10 @@ class TestApp:
                           ' -crop ' + self.cropping_dimensions[self.folders.index(folder)]
             log = subprocess.check_output(ptm_command,
                                           cwd=self.output_directory + self.separator + folder + self.separator + 'jpeg-exports')
-            print(log)
+            progress_bar['value'] += increment
             # check log output of ptmfit to see if it was successful
-            messagebox.showinfo(message='Importing has finished')
+        messagebox.showinfo(message='Importing has finished')
+        progress_bar['value'] = 0
 
     @staticmethod
     def center(window):
