@@ -2,8 +2,6 @@
 TODO:
 allow to cancel prior to processing
     - delete folders and files created
-add error checking for configuration values
-    - custom exceptions
 create progressbar for processing
 """
 
@@ -14,6 +12,7 @@ import glob
 import shutil
 from datetime import *
 from crop_box_manager import *
+from exceptions import *
 from tkinter import *
 from tkinter import filedialog
 from tkinter import messagebox
@@ -134,19 +133,22 @@ class TestApp:
         self.ask_open_file('ptm_entry', (('exe files', '*.exe'), ('all files', '*.*')))
 
     def confirm_config(self):
-        if not self.is_config_valid():
+        try:
+            self.is_config_valid()
+        except(EmptyEntry, NotDigit, InvalidPath, NotWithinRange, InvalidProcessor) as err:
+            messagebox.showerror(title='Error', message=err)
             return
-        #self.output_directory = self.builder_config.get_object('output_entry').get()
-        #self.output_name = self.builder_config.get_object('name_entry').get()
-        #self.images_directory = self.builder_config.get_object('images_entry').get()
-        #self.lp = self.builder_config.get_object('lp_entry').get()
-        #self.ptm = self.builder_config.get_object('ptm_entry').get()
-        #self.inter_capture_delay = int(self.builder_config.get_object('inter_capture_delay', self.window).get())
-        #self.read_lp_file()
-        #self.import_images()
-        #self.create_crop_box()
-        #messagebox.showinfo(message='Application configurations have been setup successfully')
-        #self.window.destroy()
+        self.output_directory = self.builder_config.get_object('output_entry').get()
+        self.output_name = self.builder_config.get_object('name_entry').get()
+        self.images_directory = self.builder_config.get_object('images_entry').get()
+        self.lp = self.builder_config.get_object('lp_entry').get()
+        self.ptm = self.builder_config.get_object('ptm_entry').get()
+        self.inter_capture_delay = int(self.builder_config.get_object('inter_capture_delay', self.window).get())
+        self.read_lp_file()
+        self.import_images()
+        self.create_crop_box()
+        messagebox.showinfo(message='Application configurations have been setup successfully')
+        self.window.destroy()
 
     def cancel_config(self):
         self.window.destroy()
@@ -171,25 +173,27 @@ class TestApp:
     def is_config_valid(self):
         # check for valid paths and if images are all of the same type or total is mod zero of the expected counts
         # replace false returns with excepts
-        entry_list = ['output_entry', 'name_entry', 'images_entry', 'lp_entry', 'ptm_entry', 'inter_capture_delay']
-        for entry in entry_list:
-            entry_contents = self.builder_config.get_object(entry).get()
+        config_object_list = ['output_entry', 'name_entry', 'inter_capture_delay', 'images_entry', 'lp_entry', 'ptm_entry']
+        for config_object in config_object_list:
+            entry_contents = self.builder_config.get_object(config_object).get()
             if entry_contents == '':
-                return False
-            if entry == 'inter_capture_delay':
+                raise EmptyEntry(config_object.split('_')[0])
+            if config_object == 'inter_capture_delay':
                 if not entry_contents.isdigit():
-                    return False
-                elif int(entry_contents) >= 0 or int(entry_contents) <= 100:
-                    return False
+                    raise NotDigit(entry_contents)
+                elif int(entry_contents) < 0 or int(entry_contents) > 100:
+                    raise NotWithinRange(int(entry_contents), 0, 100)
             else:
-                if entry != 'name_entry':
+                if config_object != 'name_entry':
                     if not os.path.exists(entry_contents):
-                        return False
-            if entry == 'ptm_entry':
-                ptm_command = entry_contents + ' -h'
+                        raise InvalidPath(entry_contents)
+            if config_object == 'images_entry':
+                pass
+            if config_object == 'ptm_entry':
+                ptm_command = str(entry_contents) + ' -h'
                 output = subprocess.check_output(ptm_command)
-                # check output for correct -h command
-        return True
+                if 'Copyright Hewlett-Packard Company 2001. All rights reserved.' not in str(output):
+                    raise InvalidProcessor(entry_contents)
 
     def create_folder_hierarchy(self, output_name):
         self.folders.append(output_name)
@@ -204,7 +208,7 @@ class TestApp:
         for line in lines:
             values = (line.rstrip()).split(' ')
             if len(values) != 1:
-                if values[1].isdecimal() and values[2].isdecimal() and values[3].isdecimal():
+                if values[1].replace('.', '', 1).isdigit() and values[2].replace('.', '', 1).isdigit() and values[3].replace('.', '', 1).isdigit():
                     value = abs(Decimal(values[1])) + abs(Decimal(values[2])) + abs(1 - Decimal(values[3]))
                     if value < best_fit_image_value:
                         self.best_fit_image_index = lines.index(line)
@@ -223,6 +227,7 @@ class TestApp:
         no_in_folder = 0
         images = []
         next_suffix = self.next_suffix()
+
         for file in os.listdir(self.images_directory):
             if file.endswith('.jpg'):  # or file.endswith('.jpeg'):
                 images.append(os.path.join(self.images_directory, file))
@@ -241,7 +246,7 @@ class TestApp:
                     pass
                 else:
                     pass
-                next_suffix += self.next_suffix()
+                next_suffix = self.next_suffix()
                 first = True
 
             if first:
@@ -273,7 +278,7 @@ class TestApp:
             self.output_name = self.output_name + '_'
 
         files = [f for f in os.listdir(self.output_directory) if
-                 re.match(self.output_name + '[0-9]{3}$', f)]
+                 re.match(self.output_name + '[0-9]{4}$', f)]
 
         for file in files:
             suffix = int(file[len(self.output_name):])
@@ -287,10 +292,11 @@ class TestApp:
             shutil.copy(self.lp, new_lp)
             ptm_command = self.ptm + ' -i ' + new_lp + self.separator + os.path.basename(os.path.normpath(self.lp)) + \
                           ' -o ' + self.output_directory + self.separator + folder + self.separator + \
-                          'finished-files' + self.separator + folder + '.ptm'
-            # 'crop ' + self.cropping_dimensions[self.folders.index(folder)]
+                          'finished-files' + self.separator + folder + '.ptm' + \
+                          ' -crop ' + self.cropping_dimensions[self.folders.index(folder)]
             log = subprocess.check_output(ptm_command,
                                           cwd=self.output_directory + self.separator + folder + self.separator + 'jpeg-exports')
+            print(log)
             # check log output of ptmfit to see if it was successful
             messagebox.showinfo(message='Importing has finished')
 
@@ -343,8 +349,7 @@ class TestApp:
         self.has_update = True
 
         # create crop box manager
-        self.manager = CropBoxManager(self.master, label, self.menubar.winfo_height(), self.bottom.winfo_height(),
-                                      scale)
+        self.manager = CropBoxManager(self.master, label, self.menubar.winfo_height(), self.bottom.winfo_height())
 
 
 if __name__ == '__main__':
