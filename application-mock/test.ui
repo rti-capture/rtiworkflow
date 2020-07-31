@@ -4,25 +4,16 @@
     <property name="height">100</property>
     <property name="width">100</property>
     <layout manager="grid">
+      <property name="ipady">5</property>
       <property name="propagate">True</property>
       <property name="row">2</property>
       <property name="sticky">s</property>
     </layout>
     <child>
-      <object class="ttk.Progressbar" id="progress_bar">
-        <property name="length">300</property>
-        <property name="orient">horizontal</property>
-        <layout manager="pack">
-          <property name="pady">12</property>
-          <property name="propagate">True</property>
-          <property name="side">left</property>
-        </layout>
-      </object>
-    </child>
-    <child>
       <object class="tk.Button" id="button_2">
         <property name="command">process_btn_click</property>
         <property name="text" translatable="yes">Process</property>
+        <property name="width">11</property>
         <layout manager="pack">
           <property name="padx">5</property>
           <property name="propagate">True</property>

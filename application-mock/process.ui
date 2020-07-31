@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface version="1.0">
+  <object class="tk.Frame" id="main_frame">
+    <property name="height">200</property>
+    <property name="width">200</property>
+    <layout manager="pack">
+      <property name="propagate">True</property>
+      <property name="side">top</property>
+    </layout>
+    <child>
+      <object class="ttk.Progressbar" id="progress_bar">
+        <property name="length">250</property>
+        <property name="orient">horizontal</property>
+        <layout manager="pack">
+          <property name="pady">7</property>
+          <property name="propagate">True</property>
+          <property name="side">top</property>
+        </layout>
+      </object>
+    </child>
+    <child>
+      <object class="tk.Button" id="cancel_process">
+        <property name="command">cancel_process</property>
+        <property name="text" translatable="yes">Cancel</property>
+        <layout manager="pack">
+          <property name="pady">5</property>
+          <property name="propagate">True</property>
+          <property name="side">top</property>
+        </layout>
+      </object>
+    </child>
+  </object>
+</interface>

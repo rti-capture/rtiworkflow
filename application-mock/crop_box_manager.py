@@ -53,7 +53,7 @@ class CropBoxManager:
 
         self.var = StringVar()
         self.var.set('x=0,y=0,w=' + str(self.photo.width()) + ',h=' + str(self.photo.height()))
-        self.crop = '0 0 ' + str(int(self.photo.width() / self.scale_x)) + ' ' + str(int(self.photo.height() / self.scale_y))
+        self.crop = '0 0 ' + str(int(self.photo.width() * self.scale_x)) + ' ' + str(int(self.photo.height() * self.scale_y))
         self.values = Label(parent, textvariable=self.var)
         self.values.place(x=7, y=30)
 

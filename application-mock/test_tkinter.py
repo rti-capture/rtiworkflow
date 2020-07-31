@@ -1,8 +1,6 @@
 """
 TODO:
 process RAW image types to tiffs
-allow to cancel prior to processing
-    - delete folders and files created
 """
 
 import os
@@ -13,6 +11,7 @@ import shutil
 from datetime import *
 from crop_box_manager import *
 from exceptions import *
+from threading import Thread
 from tkinter import *
 from tkinter import filedialog
 from tkinter import messagebox
@@ -22,29 +21,32 @@ from decimal import Decimal
 PROJECT_PATH = os.path.dirname(__file__)
 PROJECT_UI_MAIN = os.path.join(PROJECT_PATH, 'test.ui')
 PROJECT_UI_CONFIG = os.path.join(PROJECT_PATH, 'config.ui')
+PROJECT_UI_PROCESS = os.path.join(PROJECT_PATH, 'process.ui')
 
 
 class TestApp:
     def __init__(self, master):
         self.master = master
+        self.has_update = False
+        self.expected_counts = {65, 76, 128}
+
         self.window = None
         self.output_directory = None
         self.images_directory = None
+        self.inter_capture_delay = None
         self.image_type = None
         self.output_name = None
         self.lp = None
         self.ptm = None
-        self.inter_capture_delay = 10
-        self.has_update = False
         self.manager = None
         self.best_fit_image_index = None
         self.best_fit_image_images = []
         self.cropping_dimensions = []
         self.folders = []
         self.crop_box_listener = None
-        self.expected_counts = {65, 76, 128}
+        self.processing = False
+        self.current_process = None
         self.image_scale = None
-        self.builder_config = None
 
         if os.name == 'nt':
             self.separator = '\\'
@@ -96,6 +98,24 @@ class TestApp:
         self.builder_config.get_object('image_type', self.window).current(0)
 
         self.builder_config.connect_callbacks(self)
+
+    def open_process(self):
+        self.window = Toplevel(self.main_window, highlightthickness=0)
+        self.window.geometry('325x70')
+        self.window.iconbitmap('arrow.ico')
+        self.window.lift()
+        self.window.focus_force()
+        self.window.grab_set()
+        self.center(self.window)
+        self.window.resizable(False, False)
+
+        self.builder_process = pygubu.Builder()
+        self.builder_process.add_resource_path(PROJECT_PATH)
+        self.builder_process.add_from_file(PROJECT_UI_PROCESS)
+        main_frame = self.builder_process.get_object('main_frame', self.window)
+        process_window = main_frame
+
+        self.builder_process.connect_callbacks(self)
 
     def ask_directory(self, name_of_entry):
         directory = filedialog.askdirectory()
@@ -156,6 +176,12 @@ class TestApp:
     def cancel_config(self):
         self.window.destroy()
 
+    def cancel_process(self):
+        self.current_process.terminate()
+        self.reset_app_variables()
+        self.clear_lists()
+        self.window.destroy()
+
     def process_btn_click(self):
         if self.output_directory is not None:
             self.cropping_dimensions.append(self.manager.return_crop())
@@ -164,13 +190,9 @@ class TestApp:
             self.master.minsize(0, 0)
             if len(self.best_fit_image_images) == 0:
                 self.body.unbind('<Configure>', self.crop_box_listener)
-                self.process()
-                self.manager = None
-                self.output_directory = None
-                self.output_name = None
-                self.images_directory = None
-                self.lp = None
-                self.ptm = None
+                self.open_process()
+                process_thread = Thread(target=self.process)
+                process_thread.start()
             else:
                 self.create_crop_box()
 
@@ -194,8 +216,8 @@ class TestApp:
                 pass
             if config_object == 'ptm_entry':
                 ptm_command = str(entry_contents) + ' -h'
-                output = subprocess.check_output(ptm_command)
-                if 'Copyright Hewlett-Packard Company 2001. All rights reserved.' not in str(output):
+                process = subprocess.Popen(ptm_command, stdout=subprocess.PIPE)
+                if 'Copyright Hewlett-Packard Company 2001. All rights reserved.' not in str(process.communicate()):
                     raise InvalidProcessor(entry_contents)
 
     def create_folder_hierarchy(self, output_name):
@@ -291,21 +313,48 @@ class TestApp:
         return next_suffix
 
     def process(self):
-        progress_bar = self.builder_main.get_object('progress_bar')
+        progress_bar = self.builder_process.get_object('progress_bar')
+        self.processing = True
         increment = 100 / len(self.folders)
         for folder in self.folders:
-            new_lp = self.output_directory + self.separator + folder + self.separator + 'assembly-files'
-            shutil.copy(self.lp, new_lp)
-            ptm_command = self.ptm + ' -i ' + new_lp + self.separator + os.path.basename(os.path.normpath(self.lp)) + \
-                          ' -o ' + self.output_directory + self.separator + folder + self.separator + \
-                          'finished-files' + self.separator + folder + '.ptm' + \
-                          ' -crop ' + self.cropping_dimensions[self.folders.index(folder)]
-            log = subprocess.check_output(ptm_command,
-                                          cwd=self.output_directory + self.separator + folder + self.separator + 'jpeg-exports')
-            progress_bar['value'] += increment
-            # check log output of ptmfit to see if it was successful
-        messagebox.showinfo(message='Importing has finished')
-        progress_bar['value'] = 0
+            if self.processing:
+                new_lp = self.output_directory + self.separator + folder + self.separator + 'assembly-files'
+                shutil.copy(self.lp, new_lp)
+                ptm_command = self.ptm + ' -i ' + new_lp + self.separator + os.path.basename(os.path.normpath(self.lp)) + \
+                              ' -o ' + self.output_directory + self.separator + folder + self.separator + \
+                              'finished-files' + self.separator + folder + '.ptm' + \
+                              ' -crop ' + self.cropping_dimensions[self.folders.index(folder)]
+                self.current_process = subprocess.Popen(ptm_command, cwd=self.output_directory + self.separator + folder + self.separator + 'jpeg-exports', stdout=subprocess.PIPE)
+                self.current_process.wait()
+                if progress_bar.winfo_exists():
+                    progress_bar['value'] += increment
+                # check log output of ptmfit to see if it was successful
+            else:
+                return  # break out of processing if processing has been cancelled
+
+        self.reset_app_variables()
+        self.clear_lists()
+        self.window.destroy()
+
+    def reset_app_variables(self):
+        self.processing = False
+        self.current_process = None
+        self.manager = None
+        self.output_directory = None
+        self.output_name = None
+        self.inter_capture_delay = None
+        self.image_type = None
+        self.images_directory = None
+        self.lp = None
+        self.ptm = None
+        self.crop_box_listener = None
+        self.image_scale = None
+
+    def clear_lists(self):
+        self.folders = []
+        self.best_fit_image_images = []
+        self.cropping_dimensions = []
+        pass
 
     @staticmethod
     def center(window):
