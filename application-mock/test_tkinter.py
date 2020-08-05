@@ -1,6 +1,6 @@
 """
 TODO:
-process RAW image types to tiffs
+add error log to show which folders have failed while processing
 """
 
 import os
@@ -15,7 +15,8 @@ from threading import Thread
 from tkinter import *
 from tkinter import filedialog
 from tkinter import messagebox
-from pil import Image, ImageTk
+from wand.image import Image
+from PIL import Image, ImageTk
 from decimal import Decimal
 
 PROJECT_PATH = os.path.dirname(__file__)
@@ -41,6 +42,7 @@ class TestApp:
         self.manager = None
         self.best_fit_image_index = None
         self.best_fit_image_images = []
+        self.export_file_name = None
         self.cropping_dimensions = []
         self.folders = []
         self.crop_box_listener = None
@@ -76,7 +78,7 @@ class TestApp:
 
     def open_config(self):
         self.window = Toplevel(self.main_window, highlightthickness=0)
-        self.window.geometry('550x200')
+        self.window.geometry('550x220')
         self.window.iconbitmap('arrow.ico')
         self.window.grid_rowconfigure(1, weight=1)
         self.window.grid_columnconfigure(0, weight=1)
@@ -167,6 +169,11 @@ class TestApp:
         self.lp = self.builder_config.get_object('lp_entry').get()
         self.ptm = self.builder_config.get_object('ptm_entry').get()
         self.inter_capture_delay = int(self.builder_config.get_object('inter_capture_delay', self.window).get())
+        if self.image_type == '.jpg':
+            self.export_file_name = 'jpeg-exports'
+        else:
+            self.export_file_name = 'tiff-exports'
+
         self.read_lp_file()
         self.import_images()
         self.create_crop_box()
@@ -222,7 +229,7 @@ class TestApp:
 
     def create_folder_hierarchy(self, output_name):
         self.folders.append(output_name)
-        folder_list = ['assembly-files', 'finished-files', 'jpeg-exports', 'original-captures']
+        folder_list = ['assembly-files', 'finished-files', self.export_file_name, 'original-captures']
         for folder in folder_list:
             os.makedirs(self.output_directory + self.separator + output_name + self.separator + folder)
 
@@ -285,11 +292,19 @@ class TestApp:
                 if latest_taken < image_taken:
                     latest_taken = image_taken
 
-            file_name = '{0:0=3d}'.format(no_in_folder) + self.image_type
+            if self.image_type == '.jpg':
+                file_name = '{0:0=3d}'.format(no_in_folder) + self.image_type
+            else:
+                file_name = '{0:0=3d}'.format(no_in_folder) + '.tif'
             copy_original = self.output_directory + self.separator + folder_name + self.separator + 'original-captures'
-            copy_export = self.output_directory + self.separator + folder_name + self.separator + 'jpeg-exports' + self.separator + file_name
-            shutil.copy(image, copy_original)
-            shutil.copy(image, copy_export)
+            copy_export = self.output_directory + self.separator + folder_name + self.separator + self.export_file_name + self.separator + file_name
+            shutil.copy(src=image, dst=copy_original)
+            if self.image_type == '.jpg':
+                shutil.copy(src=image, dst=copy_export)
+            else:
+                with Image(filename=image) as converted_image:
+                    converted_image.format = 'tif'
+                    converted_image.save(filename=copy_export)
             no_in_folder += 1
 
         if image_taken > latest_threshold:
@@ -324,7 +339,7 @@ class TestApp:
                               ' -o ' + self.output_directory + self.separator + folder + self.separator + \
                               'finished-files' + self.separator + folder + '.ptm' + \
                               ' -crop ' + self.cropping_dimensions[self.folders.index(folder)]
-                self.current_process = subprocess.Popen(ptm_command, cwd=self.output_directory + self.separator + folder + self.separator + 'jpeg-exports', stdout=subprocess.PIPE)
+                self.current_process = subprocess.Popen(ptm_command, cwd=self.output_directory + self.separator + folder + self.separator + self.export_file_name, stdout=subprocess.PIPE)
                 self.current_process.wait()
                 if progress_bar.winfo_exists():
                     progress_bar['value'] += increment
