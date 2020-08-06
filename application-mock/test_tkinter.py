@@ -313,6 +313,7 @@ class TestApp:
                 shutil.copy(src=image, dst=copy_export)
             else:
                 with ImageWand(filename=image) as converted_image:
+                    converted_image.quantize(number_colors=8)
                     converted_image.format = 'tif'
                     converted_image.save(filename=copy_export)
             if no_in_folder == self.best_fit_image_index:
