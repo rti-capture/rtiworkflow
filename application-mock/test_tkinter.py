@@ -6,6 +6,7 @@ add error log to show which folders have failed while processing
 import os
 import pygubu
 import subprocess
+import exifread
 import glob
 import shutil
 from datetime import *
@@ -15,7 +16,7 @@ from threading import Thread
 from tkinter import *
 from tkinter import filedialog
 from tkinter import messagebox
-from wand.image import Image
+from wand.image import Image as ImageWand
 from PIL import Image, ImageTk
 from decimal import Decimal
 
@@ -32,6 +33,10 @@ class TestApp:
         self.expected_counts = {65, 76, 128}
 
         self.window = None
+        self.builder_main = None
+        self.builder_config = None
+        self.builder_process = None
+
         self.output_directory = None
         self.images_directory = None
         self.inter_capture_delay = None
@@ -39,16 +44,17 @@ class TestApp:
         self.output_name = None
         self.lp = None
         self.ptm = None
+
         self.manager = None
         self.best_fit_image_index = None
         self.best_fit_image_images = []
-        self.export_file_name = None
         self.cropping_dimensions = []
-        self.folders = []
         self.crop_box_listener = None
+
+        self.folders = []
+        self.export_file_name = None
         self.processing = False
         self.current_process = None
-        self.image_scale = None
 
         if os.name == 'nt':
             self.separator = '\\'
@@ -228,7 +234,6 @@ class TestApp:
                     raise InvalidProcessor(entry_contents)
 
     def create_folder_hierarchy(self, output_name):
-        self.folders.append(output_name)
         folder_list = ['assembly-files', 'finished-files', self.export_file_name, 'original-captures']
         for folder in folder_list:
             os.makedirs(self.output_directory + self.separator + output_name + self.separator + folder)
@@ -250,7 +255,6 @@ class TestApp:
                     pass
 
     def import_images(self):
-        # raw images need to be converted in jpeg-exports
         first = True
         prime = True
         folder_name = None
@@ -266,9 +270,13 @@ class TestApp:
                 images.append(os.path.join(self.images_directory, file))
 
         for image in images:
-            if no_in_folder == self.best_fit_image_index:
-                self.best_fit_image_images.append(image)
-            image_taken = datetime.strptime(Image.open(image).getexif().get(36867), '%Y:%m:%d %H:%M:%S')
+            if self.image_type == '.jpg':
+                image_taken = datetime.strptime(Image.open(image).getexif().get(36867), '%Y:%m:%d %H:%M:%S')
+            else:
+                f = open(image, 'rb')
+                tags = exifread.process_file(f, details=False)
+                image_taken = datetime.strptime(str(tags['EXIF DateTimeOriginal']), '%Y:%m:%d %H:%M:%S')
+
             if prime:
                 latest_taken = image_taken
                 prime = False
@@ -276,9 +284,11 @@ class TestApp:
             latest_threshold = latest_taken + timedelta(seconds=self.inter_capture_delay)
             if image_taken > latest_threshold:
                 if no_in_folder in self.expected_counts:
-                    pass
+                    self.folders.append(folder_name)
                 else:
+                    # let user know that this folder wont be processed
                     pass
+
                 next_suffix = self.next_suffix()
                 first = True
 
@@ -302,16 +312,18 @@ class TestApp:
             if self.image_type == '.jpg':
                 shutil.copy(src=image, dst=copy_export)
             else:
-                with Image(filename=image) as converted_image:
+                with ImageWand(filename=image) as converted_image:
                     converted_image.format = 'tif'
                     converted_image.save(filename=copy_export)
+            if no_in_folder == self.best_fit_image_index:
+                self.best_fit_image_images.append(copy_export)
             no_in_folder += 1
 
-        if image_taken > latest_threshold:
-            if no_in_folder in self.expected_counts:
-                pass
-            else:
-                pass
+        if no_in_folder in self.expected_counts:
+            self.folders.append(folder_name)
+        else:
+            # let user know that this folder wont be processed
+            pass
 
     def next_suffix(self):
         next_suffix = 0
@@ -363,7 +375,6 @@ class TestApp:
         self.lp = None
         self.ptm = None
         self.crop_box_listener = None
-        self.image_scale = None
 
     def clear_lists(self):
         self.folders = []

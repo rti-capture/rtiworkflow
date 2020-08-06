@@ -175,7 +175,7 @@
         <child>
           <object class="ttk.Combobox" id="image_type">
             <property name="state">readonly</property>
-            <property name="values">.jpg .nef .cr2</property>
+            <property name="values">.jpg .NEF .CR2</property>
             <property name="width">15</property>
             <layout manager="pack">
               <property name="propagate">True</property>
