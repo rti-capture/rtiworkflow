@@ -9,6 +9,8 @@ import subprocess
 import exifread
 import glob
 import shutil
+import _strptime
+from queue import *
 from datetime import *
 from crop_box_manager import *
 from exceptions import *
@@ -21,9 +23,9 @@ from PIL import Image, ImageTk
 from decimal import Decimal
 
 PROJECT_PATH = os.path.dirname(__file__)
-PROJECT_UI_MAIN = os.path.join(PROJECT_PATH, 'test.ui')
+PROJECT_UI_MAIN = os.path.join(PROJECT_PATH, 'main.ui')
 PROJECT_UI_CONFIG = os.path.join(PROJECT_PATH, 'config.ui')
-PROJECT_UI_PROCESS = os.path.join(PROJECT_PATH, 'process.ui')
+PROJECT_UI_PROCESS = os.path.join(PROJECT_PATH, 'loading.ui')
 
 
 class TestApp:
@@ -33,9 +35,11 @@ class TestApp:
         self.expected_counts = {65, 76, 128}
 
         self.window = None
+        self.progress_bar = None
+        self.loading_window = None
         self.builder_main = None
         self.builder_config = None
-        self.builder_process = None
+        self.builder_loading = None
 
         self.output_directory = None
         self.images_directory = None
@@ -53,8 +57,10 @@ class TestApp:
 
         self.folders = []
         self.export_file_name = None
-        self.processing = False
         self.current_process = None
+        self.is_running = False
+        self.background = None
+        self.event_queue = Queue()
 
         if os.name == 'nt':
             self.separator = '\\'
@@ -83,6 +89,11 @@ class TestApp:
         self.main_window.mainloop()
 
     def open_config(self):
+
+        if self.is_running:
+            messagebox.showerror(title='Error', message='You are currently processing files')
+            return
+
         self.window = Toplevel(self.main_window, highlightthickness=0)
         self.window.geometry('550x220')
         self.window.iconbitmap('arrow.ico')
@@ -107,23 +118,29 @@ class TestApp:
 
         self.builder_config.connect_callbacks(self)
 
-    def open_process(self):
-        self.window = Toplevel(self.main_window, highlightthickness=0)
-        self.window.geometry('325x70')
-        self.window.iconbitmap('arrow.ico')
-        self.window.lift()
-        self.window.focus_force()
-        self.window.grab_set()
-        self.center(self.window)
-        self.window.resizable(False, False)
+    def open_loading(self):
+        self.loading_window = Toplevel(self.main_window, highlightthickness=0)
+        self.loading_window.protocol("WM_DELETE_WINDOW", self.disable_exit)
+        self.loading_window.geometry('325x70')
+        self.loading_window.iconbitmap('arrow.ico')
+        self.loading_window.lift()
+        self.loading_window.focus_force()
+        self.loading_window.grab_set()
+        self.center(self.loading_window)
+        self.loading_window.resizable(False, False)
 
-        self.builder_process = pygubu.Builder()
-        self.builder_process.add_resource_path(PROJECT_PATH)
-        self.builder_process.add_from_file(PROJECT_UI_PROCESS)
-        main_frame = self.builder_process.get_object('main_frame', self.window)
+        self.builder_loading = pygubu.Builder()
+        self.builder_loading.add_resource_path(PROJECT_PATH)
+        self.builder_loading.add_from_file(PROJECT_UI_PROCESS)
+        main_frame = self.builder_loading.get_object('main_frame', self.loading_window)
         process_window = main_frame
 
-        self.builder_process.connect_callbacks(self)
+        self.progress_bar = self.builder_loading.get_object('progress_bar')
+
+        self.builder_loading.connect_callbacks(self)
+
+    def disable_exit(self):
+        pass
 
     def ask_directory(self, name_of_entry):
         directory = filedialog.askdirectory()
@@ -168,6 +185,7 @@ class TestApp:
         except(EmptyEntry, NotDigit, InvalidPath, NotWithinRange, InvalidProcessor) as err:
             messagebox.showerror(title='Error', message=err)
             return
+        self.is_running = True
         self.output_directory = self.builder_config.get_object('output_entry').get()
         self.output_name = self.builder_config.get_object('name_entry').get()
         self.images_directory = self.builder_config.get_object('images_entry').get()
@@ -181,37 +199,36 @@ class TestApp:
             self.export_file_name = 'tiff-exports'
 
         self.read_lp_file()
-        self.import_images()
-        self.create_crop_box()
-        messagebox.showinfo(message='Application configurations have been setup successfully')
-        self.window.destroy()
+        self.open_loading()
+        thread = Thread(target=self.import_images)
+        thread.start()
 
     def cancel_config(self):
         self.window.destroy()
 
-    def cancel_process(self):
-        self.current_process.terminate()
-        self.reset_app_variables()
-        self.clear_lists()
-        self.window.destroy()
+    def cancel(self):
+        self.is_running = False
+        if self.current_process is not None:
+            self.current_process.terminate()
 
     def process_btn_click(self):
-        if self.output_directory is not None:
+        if self.is_running:
             self.cropping_dimensions.append(self.manager.return_crop())
             self.manager.clear_cropping()
             del self.best_fit_image_images[0]
             self.master.minsize(0, 0)
             if len(self.best_fit_image_images) == 0:
                 self.body.unbind('<Configure>', self.crop_box_listener)
-                self.open_process()
-                process_thread = Thread(target=self.process)
-                process_thread.start()
+                self.open_loading()
+                thread = Thread(target=self.process)
+                thread.start()
             else:
                 self.create_crop_box()
 
     def is_config_valid(self):
         # check for valid paths and if images are all of the same type or total is mod zero of the expected counts
-        config_object_list = ['output_entry', 'name_entry', 'inter_capture_delay', 'images_entry', 'lp_entry', 'ptm_entry']
+        config_object_list = ['output_entry', 'name_entry', 'inter_capture_delay', 'images_entry', 'lp_entry',
+                              'ptm_entry']
         for config_object in config_object_list:
             entry_contents = self.builder_config.get_object(config_object).get()
             if entry_contents == '':
@@ -245,7 +262,8 @@ class TestApp:
         for line in lines:
             values = (line.rstrip()).split(' ')
             if len(values) != 1:
-                if values[1].replace('.', '', 1).isdigit() and values[2].replace('.', '', 1).isdigit() and values[3].replace('.', '', 1).isdigit():
+                if values[1].replace('.', '', 1).isdigit() and values[2].replace('.', '', 1).isdigit() and values[
+                    3].replace('.', '', 1).isdigit():
                     value = abs(Decimal(values[1])) + abs(Decimal(values[2])) + abs(1 - Decimal(values[3]))
                     if value < best_fit_image_value:
                         self.best_fit_image_index = lines.index(line)
@@ -269,62 +287,76 @@ class TestApp:
             if file.endswith(self.image_type):
                 images.append(os.path.join(self.images_directory, file))
 
+        increment = 100 / len(images)
         for image in images:
-            if self.image_type == '.jpg':
-                image_taken = datetime.strptime(Image.open(image).getexif().get(36867), '%Y:%m:%d %H:%M:%S')
+            if not self.is_running:
+                self.reset_app_variables()
+                self.clear_lists()
+                self.loading_window.destroy()
+                self.window.destroy()
+                return
             else:
-                f = open(image, 'rb')
-                tags = exifread.process_file(f, details=False)
-                image_taken = datetime.strptime(str(tags['EXIF DateTimeOriginal']), '%Y:%m:%d %H:%M:%S')
-
-            if prime:
-                latest_taken = image_taken
-                prime = False
-
-            latest_threshold = latest_taken + timedelta(seconds=self.inter_capture_delay)
-            if image_taken > latest_threshold:
-                if no_in_folder in self.expected_counts:
-                    self.folders.append(folder_name)
+                if self.image_type == '.jpg':
+                    image_taken = datetime.strptime(Image.open(image).getexif().get(36867), '%Y:%m:%d %H:%M:%S')
                 else:
-                    # let user know that this folder wont be processed
-                    pass
+                    f = open(image, 'rb')
+                    tags = exifread.process_file(f, details=False)
+                    image_taken = datetime.strptime(str(tags['EXIF DateTimeOriginal']), '%Y:%m:%d %H:%M:%S')
 
-                next_suffix = self.next_suffix()
-                first = True
-
-            if first:
-                latest_taken = image_taken
-                folder_name = self.output_name + '{0:0=4d}'.format(next_suffix)
-                self.create_folder_hierarchy(folder_name)
-                no_in_folder = 0
-                first = False
-            else:
-                if latest_taken < image_taken:
+                if prime:
                     latest_taken = image_taken
+                    prime = False
 
-            if self.image_type == '.jpg':
-                file_name = '{0:0=3d}'.format(no_in_folder) + self.image_type
-            else:
-                file_name = '{0:0=3d}'.format(no_in_folder) + '.tif'
-            copy_original = self.output_directory + self.separator + folder_name + self.separator + 'original-captures'
-            copy_export = self.output_directory + self.separator + folder_name + self.separator + self.export_file_name + self.separator + file_name
-            shutil.copy(src=image, dst=copy_original)
-            if self.image_type == '.jpg':
-                shutil.copy(src=image, dst=copy_export)
-            else:
-                with ImageWand(filename=image) as converted_image:
-                    converted_image.quantize(number_colors=8)
-                    converted_image.format = 'tif'
-                    converted_image.save(filename=copy_export)
-            if no_in_folder == self.best_fit_image_index:
-                self.best_fit_image_images.append(copy_export)
-            no_in_folder += 1
+                latest_threshold = latest_taken + timedelta(seconds=self.inter_capture_delay)
+                if image_taken > latest_threshold:
+                    if no_in_folder in self.expected_counts:
+                        self.folders.append(folder_name)
+                    else:
+                        # let user know that this folder wont be processed
+                        pass
 
+                    next_suffix = self.next_suffix()
+                    first = True
+
+                if first:
+                    latest_taken = image_taken
+                    folder_name = self.output_name + '{0:0=4d}'.format(next_suffix)
+                    self.create_folder_hierarchy(folder_name)
+                    no_in_folder = 0
+                    first = False
+                else:
+                    if latest_taken < image_taken:
+                        latest_taken = image_taken
+
+                if self.image_type == '.jpg':
+                    file_name = '{0:0=3d}'.format(no_in_folder) + self.image_type
+                else:
+                    file_name = '{0:0=3d}'.format(no_in_folder) + '.tif'
+                copy_original = self.output_directory + self.separator + folder_name + self.separator + 'original-captures'
+                copy_export = self.output_directory + self.separator + folder_name + self.separator + self.export_file_name + self.separator + file_name
+                shutil.copy(src=image, dst=copy_original)
+                if self.image_type == '.jpg':
+                    shutil.copy(src=image, dst=copy_export)
+                else:
+                    with ImageWand(filename=image) as converted_image:
+                        converted_image.quantize(number_colors=8)
+                        converted_image.format = 'tif'
+                        converted_image.save(filename=copy_export)
+                if no_in_folder == self.best_fit_image_index:
+                    self.best_fit_image_images.append(copy_export)
+                if self.progress_bar.winfo_exists():
+                    self.progress_bar['value'] += increment
+                no_in_folder += 1
         if no_in_folder in self.expected_counts:
             self.folders.append(folder_name)
         else:
             # let user know that this folder wont be processed
             pass
+
+        self.create_crop_box()
+        messagebox.showinfo(message='Application configurations have been setup successfully')
+        self.loading_window.destroy()
+        self.window.destroy()
 
     def next_suffix(self):
         next_suffix = 0
@@ -341,31 +373,36 @@ class TestApp:
         return next_suffix
 
     def process(self):
-        progress_bar = self.builder_process.get_object('progress_bar')
-        self.processing = True
+        progress_bar = self.builder_loading.get_object('progress_bar')
         increment = 100 / len(self.folders)
         for folder in self.folders:
-            if self.processing:
+            if not self.is_running:
+                self.reset_app_variables()
+                self.clear_lists()
+                self.loading_window.destroy()
+                return
+            else:
                 new_lp = self.output_directory + self.separator + folder + self.separator + 'assembly-files'
                 shutil.copy(self.lp, new_lp)
-                ptm_command = self.ptm + ' -i ' + new_lp + self.separator + os.path.basename(os.path.normpath(self.lp)) + \
+                ptm_command = self.ptm + ' -i ' + new_lp + self.separator + os.path.basename(
+                    os.path.normpath(self.lp)) + \
                               ' -o ' + self.output_directory + self.separator + folder + self.separator + \
                               'finished-files' + self.separator + folder + '.ptm' + \
                               ' -crop ' + self.cropping_dimensions[self.folders.index(folder)]
-                self.current_process = subprocess.Popen(ptm_command, cwd=self.output_directory + self.separator + folder + self.separator + self.export_file_name, stdout=subprocess.PIPE)
+                self.current_process = subprocess.Popen(ptm_command,
+                                                        cwd=self.output_directory + self.separator + folder + self.separator + self.export_file_name,
+                                                        stdout=subprocess.PIPE)
                 self.current_process.wait()
                 if progress_bar.winfo_exists():
                     progress_bar['value'] += increment
                 # check log output of ptmfit to see if it was successful
-            else:
-                return  # break out of processing if processing has been cancelled
 
+        self.is_running = False
         self.reset_app_variables()
         self.clear_lists()
-        self.window.destroy()
+        self.loading_window.destroy()
 
     def reset_app_variables(self):
-        self.processing = False
         self.current_process = None
         self.manager = None
         self.output_directory = None

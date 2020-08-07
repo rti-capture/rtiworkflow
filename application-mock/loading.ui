@@ -19,8 +19,9 @@
       </object>
     </child>
     <child>
-      <object class="tk.Button" id="cancel_process">
-        <property name="command">cancel_process</property>
+      <object class="tk.Button" id="cancel_loading">
+        <property name="command">cancel</property>
+        <property name="repeatinterval">100</property>
         <property name="text" translatable="yes">Cancel</property>
         <layout manager="pack">
           <property name="pady">5</property>
