@@ -20,6 +20,22 @@ class InvalidPath(Exception):
         return self.path + ' is not a valid path'
 
 
+class InvalidLPStructure(Exception):
+    def __init__(self, line):
+        self.line = line
+
+    def __str__(self):
+        return 'Line ' + self.line + ' violates LP file structure'
+
+
+class InvalidDomeSize(Exception):
+    def __init__(self, size):
+        self.size = size
+
+    def __str__(self):
+        return self.size + ' is not a valid dome size'
+
+
 class NotWithinRange(Exception):
     def __init__(self, value, min_value, max_value):
         self.value = value
