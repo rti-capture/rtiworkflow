@@ -9,6 +9,7 @@ import subprocess
 import exifread
 import glob
 import shutil
+import re
 import _strptime
 from datetime import *
 from crop_box_manager import *
@@ -177,6 +178,8 @@ class TestApp:
 
     def confirm_config(self):
         try:
+            self.check_non_empty()
+            self.check_path()
             self.read_lp_file()
             self.is_config_valid()
         except(EmptyEntry, NotDigit, InvalidPath, NotWithinRange, InvalidProcessor, InvalidLPStructure,
@@ -224,37 +227,20 @@ class TestApp:
             else:
                 self.create_crop_box()
 
-    def is_config_valid(self):
-        # check for valid paths and if images are all of the same type or total is mod zero of the expected counts
+    def check_non_empty(self):
         config_object_list = ['output_entry', 'name_entry', 'inter_capture_delay', 'images_entry', 'lp_entry',
                               'ptm_entry']
         for config_object in config_object_list:
             entry_contents = self.builder_config.get_object(config_object).get()
             if entry_contents == '':
                 raise EmptyEntry(config_object.split('_')[0])
-            if config_object == 'inter_capture_delay':
-                if not entry_contents.isdigit():
-                    raise NotDigit(entry_contents)
-                elif int(entry_contents) < 0 or int(entry_contents) > 100:
-                    raise NotWithinRange(int(entry_contents), 0, 100)
-            else:
-                if config_object != 'name_entry':
-                    if not os.path.exists(entry_contents):
-                        raise InvalidPath(entry_contents)
-            if config_object == 'images_entry':
-                count = len(glob.glob1(entry_contents, '*' + self.builder_config.get_object('image_type').get()))
-                if self.dome_size % count != 0 or count == 0:
-                    pass
-            if config_object == 'ptm_entry':
-                ptm_command = str(entry_contents) + ' -h'
-                process = subprocess.Popen(ptm_command, stdout=subprocess.PIPE)
-                if 'Copyright Hewlett-Packard Company 2001. All rights reserved.' not in str(process.communicate()):
-                    raise InvalidProcessor(entry_contents)
 
-    def create_folder_hierarchy(self, output_name):
-        folder_list = ['assembly-files', 'finished-files', self.export_file_name, 'original-captures']
-        for folder in folder_list:
-            os.makedirs(self.output_directory + self.separator + output_name + self.separator + folder)
+    def check_path(self):
+        config_object_list = ['output_entry', 'images_entry', 'lp_entry', 'ptm_entry']
+        for config_object in config_object_list:
+            entry_contents = self.builder_config.get_object(config_object).get()
+            if not os.path.exists(entry_contents):
+                raise InvalidPath(entry_contents)
 
     def read_lp_file(self):
         best_fit_image_value = 3
@@ -271,14 +257,39 @@ class TestApp:
                 else:
                     raise InvalidLPStructure(str(lines.index(line)))
             else:
-                func = lambda val: val.replace('.', '', 1).replace('-', '', 1).replace('E-', '', 1).replace('E', '', 1).isdigit()
-                if func(values[1]) and func(values[2]) and func(values[3]) and len(values) == 4:
+                func = lambda val: re.search('^-?0\.[0-9]+(E-[0-9])?$' , val)
+                if func(values[1]) is not None and func(values[2]) is not None and func(values[3]) is not None and len(values) == 4:
                     value = abs(Decimal(values[1])) + abs(Decimal(values[2])) + abs(1 - Decimal(values[3]))
                     if value < best_fit_image_value:
                         self.best_fit_image_index = lines.index(line)
                         best_fit_image_value = value
                 else:
                     raise InvalidLPStructure(str(lines.index(line)))
+
+    def is_config_valid(self):
+        # check for valid paths and if images are all of the same type or total is mod zero of the expected counts
+        config_object_list = ['inter_capture_delay', 'images_entry', 'ptm_entry']
+        for config_object in config_object_list:
+            entry_contents = self.builder_config.get_object(config_object).get()
+            if config_object == 'inter_capture_delay':
+                if not entry_contents.isdigit():
+                    raise NotDigit(entry_contents)
+                elif int(entry_contents) < 0 or int(entry_contents) > 100:
+                    raise NotWithinRange(int(entry_contents), 0, 100)
+            if config_object == 'images_entry':
+                count = len(glob.glob1(entry_contents, '*' + self.builder_config.get_object('image_type').get()))
+                if self.dome_size % count != 0 or count == 0:
+                    pass
+            if config_object == 'ptm_entry':
+                ptm_command = str(entry_contents) + ' -h'
+                process = subprocess.Popen(ptm_command, stdout=subprocess.PIPE)
+                if 'Copyright Hewlett-Packard Company 2001. All rights reserved.' not in str(process.communicate()):
+                    raise InvalidProcessor(entry_contents)
+
+    def create_folder_hierarchy(self, output_name):
+        folder_list = ['assembly-files', 'finished-files', self.export_file_name, 'original-captures']
+        for folder in folder_list:
+            os.makedirs(self.output_directory + self.separator + output_name + self.separator + folder)
 
     def import_images(self):
         first = True
