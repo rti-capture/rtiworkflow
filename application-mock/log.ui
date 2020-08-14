@@ -1,0 +1,34 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface version="1.0">
+  <object class="tk.Frame" id="main_frame">
+    <property name="height">50</property>
+    <property name="width">50</property>
+    <layout manager="pack">
+      <property name="propagate">True</property>
+      <property name="side">top</property>
+    </layout>
+    <child>
+      <object class="pygubu.builder.widgets.tkscrollbarhelper" id="tkscrollbarhelper_2">
+        <property name="scrolltype">vertical</property>
+        <property name="usemousewheel">false</property>
+        <layout manager="pack">
+          <property name="propagate">True</property>
+          <property name="side">top</property>
+        </layout>
+        <child>
+          <object class="tk.Text" id="logger">
+            <property name="height">10</property>
+            <property name="tabstyle">tabular</property>
+            <property name="undo">false</property>
+            <property name="width">150</property>
+            <property name="wrap">word</property>
+            <layout manager="pack">
+              <property name="propagate">True</property>
+              <property name="side">top</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>

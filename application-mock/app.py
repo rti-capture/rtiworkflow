@@ -9,7 +9,6 @@ import subprocess
 import exifread
 import glob
 import shutil
-import re
 import _strptime
 from datetime import *
 from crop_box_manager import *
@@ -25,7 +24,9 @@ from decimal import Decimal
 PROJECT_PATH = os.path.dirname(__file__)
 PROJECT_UI_MAIN = os.path.join(PROJECT_PATH, 'main.ui')
 PROJECT_UI_CONFIG = os.path.join(PROJECT_PATH, 'config.ui')
-PROJECT_UI_PROCESS = os.path.join(PROJECT_PATH, 'loading.ui')
+PROJECT_UI_LOADING = os.path.join(PROJECT_PATH, 'loading.ui')
+PROJECT_UI_LOG = os.path.join(PROJECT_PATH, 'log.ui')
+
 
 
 class TestApp:
@@ -34,11 +35,13 @@ class TestApp:
         self.has_update = False
         self.expected_counts = {65, 76, 128}
 
-        self.window = None
+        self.config_window = None
         self.loading_window = None
+        self.log_window = None
         self.builder_main = None
         self.builder_config = None
         self.builder_loading = None
+        self.builder_log = None
 
         self.output_directory = None
         self.images_directory = None
@@ -93,51 +96,67 @@ class TestApp:
             messagebox.showerror(title='Error', message='You are currently processing files')
             return
 
-        self.window = Toplevel(self.main_window, highlightthickness=0)
-        self.window.geometry('550x220')
-        self.window.iconbitmap('arrow.ico')
-        self.window.grid_rowconfigure(1, weight=1)
-        self.window.grid_columnconfigure(0, weight=1)
-        self.window.lift()
-        self.window.focus_force()
-        self.window.grab_set()
-        self.center(self.window)
-        self.window.resizable(False, False)
+        self.config_window = Toplevel(self.main_window, highlightthickness=0)
+        self.config_window.title('Import + Process Configuration')
+        self.config_window.geometry('550x220')
+        self.config_window.iconbitmap('arrow.ico')
+        self.config_window.grid_rowconfigure(1, weight=1)
+        self.config_window.grid_columnconfigure(0, weight=1)
+        self.config_window.lift()
+        self.config_window.focus_force()
+        self.config_window.grab_set()
+        self.center(self.config_window)
+        self.config_window.resizable(False, False)
 
         # pygubu builder
         self.builder_config = pygubu.Builder()
         self.builder_config.add_resource_path(PROJECT_PATH)
         self.builder_config.add_from_file(PROJECT_UI_CONFIG)
-        config = self.builder_config.get_object('config', self.window)
-        button_bar = self.builder_config.get_object('button_bar', self.window)
+        config = self.builder_config.get_object('config', self.config_window)
+        button_bar = self.builder_config.get_object('button_bar', self.config_window)
         config_window = config
         config_window = button_bar
-        self.builder_config.get_object('inter_capture_delay', self.window).insert(0, 1)
-        self.builder_config.get_object('image_type', self.window).current(0)
+        self.builder_config.get_object('inter_capture_delay', self.config_window).insert(0, 1)
+        self.builder_config.get_object('image_type', self.config_window).current(0)
 
         self.builder_config.connect_callbacks(self)
 
     def open_loading(self):
         self.loading_window = Toplevel(self.main_window, highlightthickness=0)
-        self.loading_window.protocol("WM_DELETE_WINDOW", self.disable_exit)
-        self.loading_window.geometry('325x70')
-        self.loading_window.iconbitmap('arrow.ico')
+        self.loading_window.geometry('250x70')
         self.loading_window.lift()
         self.loading_window.focus_force()
         self.loading_window.grab_set()
+        self.loading_window.overrideredirect(1)
         self.center(self.loading_window)
         self.loading_window.resizable(False, False)
 
         self.builder_loading = pygubu.Builder()
         self.builder_loading.add_resource_path(PROJECT_PATH)
-        self.builder_loading.add_from_file(PROJECT_UI_PROCESS)
+        self.builder_loading.add_from_file(PROJECT_UI_LOADING)
         main_frame = self.builder_loading.get_object('main_frame', self.loading_window)
         process_window = main_frame
 
         self.builder_loading.connect_callbacks(self)
 
-    def disable_exit(self):
-        pass
+    def open_logger(self):
+        self.log_window = Toplevel(self.main_window, highlightthickness=0)
+        self.log_window.title('Import Log')
+        self.log_window.geometry('400x170')
+        self.log_window.iconbitmap('arrow.ico')
+        self.log_window.lift()
+        self.log_window.focus_force()
+        self.log_window.grab_set()
+        self.center(self.log_window)
+        self.log_window.resizable(False, False)
+
+        self.builder_log = pygubu.Builder()
+        self.builder_log.add_resource_path(PROJECT_PATH)
+        self.builder_log.add_from_file(PROJECT_UI_LOG)
+        main_frame = self.builder_log.get_object('main_frame', self.log_window)
+        log_window = main_frame
+
+        self.builder_log.connect_callbacks(self)
 
     def ask_directory(self, name_of_entry):
         directory = filedialog.askdirectory()
@@ -195,7 +214,7 @@ class TestApp:
         self.image_type = self.builder_config.get_object('image_type').get()
         self.lp = self.builder_config.get_object('lp_entry').get()
         self.ptm = self.builder_config.get_object('ptm_entry').get()
-        self.inter_capture_delay = int(self.builder_config.get_object('inter_capture_delay', self.window).get())
+        self.inter_capture_delay = int(self.builder_config.get_object('inter_capture_delay', self.config_window).get())
         if self.image_type == '.jpg':
             self.export_file_name = 'jpeg-exports'
         else:
@@ -206,7 +225,7 @@ class TestApp:
         thread.start()
 
     def cancel_config(self):
-        self.window.destroy()
+        self.config_window.destroy()
 
     def cancel(self):
         self.is_running = False
@@ -259,7 +278,7 @@ class TestApp:
             else:
                 func = lambda val: re.search('^-?0\.[0-9]+(E-[0-9])?$' , val)
                 if func(values[1]) is not None and func(values[2]) is not None and func(values[3]) is not None and len(values) == 4:
-                    value = abs(Decimal(values[1])) + abs(Decimal(values[2])) + abs(1 - Decimal(values[3]))
+                    value = abs(Decimal(values[1])) + abs(Decimal(values[2])) + abs(1 - Decimal(values[3])) # x y z
                     if value < best_fit_image_value:
                         self.best_fit_image_index = lines.index(line)
                         best_fit_image_value = value
@@ -301,6 +320,8 @@ class TestApp:
         no_in_folder = 0
         images = []
         next_suffix = self.next_suffix()
+        message = ""
+        total_folders = 0
 
         for file in os.listdir(self.images_directory):
             if file.endswith(self.image_type):
@@ -315,7 +336,7 @@ class TestApp:
                 self.reset_app_variables()
                 self.clear_lists()
                 self.loading_window.destroy()
-                self.window.destroy()
+                self.config_window.destroy()
                 return
             else:
                 if self.image_type == '.jpg':
@@ -333,9 +354,9 @@ class TestApp:
                 if image_taken > latest_threshold:
                     if no_in_folder == self.dome_size:
                         self.folders.append(folder_name)
+                        message += 'Folder ' + str(total_folders) + ' was successfully imported\n'
                     else:
-                        # let user know that this folder wont be processed
-                        pass
+                        message += 'Folder ' + str(total_folders) + ' was not imported\n'
 
                     next_suffix = self.next_suffix()
                     first = True
@@ -345,6 +366,7 @@ class TestApp:
                     folder_name = self.output_name + '{0:0=4d}'.format(next_suffix)
                     self.create_folder_hierarchy(folder_name)
                     no_in_folder = 0
+                    total_folders += 1
                     first = False
                 else:
                     if latest_taken < image_taken:
@@ -373,14 +395,20 @@ class TestApp:
                 no_in_folder += 1
         if no_in_folder == self.dome_size:
             self.folders.append(folder_name)
+            message += 'Folder ' + str(total_folders) + ' was successfully imported\n'
         else:
-            # let user know that this folder wont be processed
-            pass
+            message += 'Folder ' + str(total_folders) + ' was not imported\n'
+
+        self.loading_window.destroy()
+        message += str(total_folders) + ' out  of ' + str(len(self.folders)) + ' folders were imported successfully'
+        self.open_logger()
+        logger = self.builder_log.get_object('logger', self.config_window)
+        logger.insert(INSERT, message)
+        logger.configure(state='disabled')
+        self.master.wait_window(self.log_window)
 
         self.create_crop_box()
-        messagebox.showinfo(message='Application configurations have been setup successfully')
-        self.loading_window.destroy()
-        self.window.destroy()
+        self.config_window.destroy()
 
     def next_suffix(self):
         next_suffix = 0
@@ -506,7 +534,7 @@ class TestApp:
 
 if __name__ == '__main__':
     root = Tk()
-    root.title('Test')
+    root.title('RTI Card Importer + Processor')
     root.geometry('600x400')
     root.iconbitmap('arrow.ico')
     root.grid_rowconfigure(1, weight=1)
