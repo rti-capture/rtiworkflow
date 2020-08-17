@@ -127,12 +127,12 @@
           <property name="row">2</property>
         </layout>
         <child>
-          <object class="tk.Checkbutton" id="checkbutton_1">
-            <property name="takefocus">true</property>
-            <property name="text" translatable="yes">Delete source files</property>
-            <layout manager="grid">
+          <object class="ttk.Checkbutton" id="delete_source">
+            <property name="text" translatable="yes">Delete source file</property>
+            <property name="variable">string:var</property>
+            <layout manager="pack">
               <property name="propagate">True</property>
-              <property name="row">0</property>
+              <property name="side">top</property>
             </layout>
           </object>
         </child>

@@ -9,6 +9,7 @@ import subprocess
 import exifread
 import glob
 import shutil
+import time as t
 import _strptime
 from datetime import *
 from crop_box_manager import *
@@ -28,7 +29,6 @@ PROJECT_UI_LOADING = os.path.join(PROJECT_PATH, 'loading.ui')
 PROJECT_UI_LOG = os.path.join(PROJECT_PATH, 'log.ui')
 
 
-
 class TestApp:
     def __init__(self, master):
         self.master = master
@@ -45,6 +45,7 @@ class TestApp:
 
         self.output_directory = None
         self.images_directory = None
+        self.delete_source = None
         self.inter_capture_delay = None
         self.image_type = None
         self.output_name = None
@@ -62,7 +63,6 @@ class TestApp:
         self.export_file_name = None
         self.current_process = None
         self.is_running = False
-        self.background = None
 
         if os.name == 'nt':
             self.separator = '\\'
@@ -210,11 +210,12 @@ class TestApp:
         self.is_running = True
         self.output_directory = self.builder_config.get_object('output_entry').get()
         self.output_name = self.builder_config.get_object('name_entry').get()
-        self.images_directory = self.builder_config.get_object('images_entry').get()
+        self.delete_source = self.builder_config.get_object('delete_source').instate(['selected'])
+        self.inter_capture_delay = int(self.builder_config.get_object('inter_capture_delay', self.config_window).get())
         self.image_type = self.builder_config.get_object('image_type').get()
+        self.images_directory = self.builder_config.get_object('images_entry').get()
         self.lp = self.builder_config.get_object('lp_entry').get()
         self.ptm = self.builder_config.get_object('ptm_entry').get()
-        self.inter_capture_delay = int(self.builder_config.get_object('inter_capture_delay', self.config_window).get())
         if self.image_type == '.jpg':
             self.export_file_name = 'jpeg-exports'
         else:
@@ -239,6 +240,7 @@ class TestApp:
             del self.best_fit_image_images[0]
             self.master.minsize(0, 0)
             if len(self.best_fit_image_images) == 0:
+                self.has_update = False
                 self.body.unbind('<Configure>', self.crop_box_listener)
                 self.open_loading()
                 thread = Thread(target=self.process)
@@ -329,10 +331,9 @@ class TestApp:
 
         progress_bar = self.builder_loading.get_object('progress_bar')
         increment = 100 / len(images)
+
         for image in images:
             if not self.is_running:
-                self.best_fit_image_index = None
-                self.dome_size = None
                 self.reset_app_variables()
                 self.clear_lists()
                 self.loading_window.destroy()
@@ -386,13 +387,17 @@ class TestApp:
                         converted_image.quantize(number_colors=8)
                         converted_image.format = 'tif'
                         converted_image.save(filename=copy_export)
+
+                if self.delete_source:
+                    os.remove(image)
+
                 if no_in_folder == self.best_fit_image_index:
                     self.best_fit_image_images.append(copy_export)
 
                 if progress_bar.winfo_exists():
                     progress_bar['value'] += increment
-
                 no_in_folder += 1
+
         if no_in_folder == self.dome_size:
             self.folders.append(folder_name)
             message += 'Folder ' + str(total_folders) + ' was successfully imported\n'
@@ -429,8 +434,6 @@ class TestApp:
         increment = 100 / len(self.folders)
         for folder in self.folders:
             if not self.is_running:
-                self.best_fit_image_index = None
-                self.dome_size = None
                 self.reset_app_variables()
                 self.clear_lists()
                 self.loading_window.destroy()
@@ -457,28 +460,37 @@ class TestApp:
                     progress_bar['value'] += increment
                 # check log output of ptmfit to see if it was successful
 
+        t.sleep(0.5)
         self.is_running = False
         self.reset_app_variables()
         self.clear_lists()
         self.loading_window.destroy()
 
     def reset_app_variables(self):
-        self.current_process = None
-        self.manager = None
+        self.has_update = False
+
         self.output_directory = None
-        self.output_name = None
+        self.images_directory = None
+        self.delete_source = None
         self.inter_capture_delay = None
         self.image_type = None
-        self.images_directory = None
+        self.output_name = None
         self.lp = None
         self.ptm = None
+
+        self.manager = None
+        self.best_fit_image_index = None
+        self.dome_size = None
         self.crop_box_listener = None
+
+        self.export_file_name = None
+        self.current_process = None
+        self.is_running = False
 
     def clear_lists(self):
         self.folders = []
         self.best_fit_image_images = []
         self.cropping_dimensions = []
-        pass
 
     @staticmethod
     def center(window):
