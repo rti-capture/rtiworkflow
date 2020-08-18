@@ -46,7 +46,14 @@
               <object class="tk.Menuitem.Command" id="config">
                 <property name="command">open_config</property>
                 <property name="command_id_arg">false</property>
-                <property name="label" translatable="yes">Configuration</property>
+                <property name="label" translatable="yes">Config</property>
+              </object>
+            </child>
+            <child>
+              <object class="tk.Menuitem.Command" id="import_and_process">
+                <property name="command">open_import_and_process</property>
+                <property name="command_id_arg">false</property>
+                <property name="label" translatable="yes">Import + Process</property>
               </object>
             </child>
           </object>

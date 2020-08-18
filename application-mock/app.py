@@ -1,6 +1,7 @@
 """
 TODO:
-add error log to show which folders have failed while processing
+separate importing from processing
+    tickbox for all the newly imported folders
 """
 
 import os
@@ -9,6 +10,7 @@ import subprocess
 import exifread
 import glob
 import shutil
+import configparser
 import time as t
 import _strptime
 from datetime import *
@@ -25,6 +27,7 @@ from decimal import Decimal
 PROJECT_PATH = os.path.dirname(__file__)
 PROJECT_UI_MAIN = os.path.join(PROJECT_PATH, 'main.ui')
 PROJECT_UI_CONFIG = os.path.join(PROJECT_PATH, 'config.ui')
+PROJECT_UI_IMPORT_AND_PROCESS = os.path.join(PROJECT_PATH, 'import_and_process.ui')
 PROJECT_UI_LOADING = os.path.join(PROJECT_PATH, 'loading.ui')
 PROJECT_UI_LOG = os.path.join(PROJECT_PATH, 'log.ui')
 
@@ -33,20 +36,21 @@ class TestApp:
     def __init__(self, master):
         self.master = master
         self.has_update = False
+        self.config = configparser.ConfigParser()
         self.expected_counts = {65, 76, 128}
 
+        self.import_and_process_window = None
         self.config_window = None
         self.loading_window = None
         self.log_window = None
         self.builder_main = None
         self.builder_config = None
+        self.builder_import_and_process = None
         self.builder_loading = None
         self.builder_log = None
 
         self.output_directory = None
         self.images_directory = None
-        self.delete_source = None
-        self.inter_capture_delay = None
         self.image_type = None
         self.output_name = None
         self.lp = None
@@ -63,11 +67,6 @@ class TestApp:
         self.export_file_name = None
         self.current_process = None
         self.is_running = False
-
-        if os.name == 'nt':
-            self.separator = '\\'
-        else:
-            self.separator = '/'
 
         # setting up pygubu builder and adding frames from xml document
         self.builder_main = pygubu.Builder()
@@ -87,18 +86,25 @@ class TestApp:
         self.master.update()
         self.center(master)
 
+        self.read_config()
+
+        if os.name == 'nt':
+            self.separator = '\\'
+        else:
+            self.separator = '/'
+
         self.builder_main.connect_callbacks(self)
         self.main_window.mainloop()
 
     def open_config(self):
-
+        entry = None
         if self.is_running:
             messagebox.showerror(title='Error', message='You are currently processing files')
             return
 
         self.config_window = Toplevel(self.main_window, highlightthickness=0)
         self.config_window.title('Import + Process Configuration')
-        self.config_window.geometry('550x220')
+        self.config_window.geometry('500x150')
         self.config_window.iconbitmap('arrow.ico')
         self.config_window.grid_rowconfigure(1, weight=1)
         self.config_window.grid_columnconfigure(0, weight=1)
@@ -112,14 +118,60 @@ class TestApp:
         self.builder_config = pygubu.Builder()
         self.builder_config.add_resource_path(PROJECT_PATH)
         self.builder_config.add_from_file(PROJECT_UI_CONFIG)
-        config = self.builder_config.get_object('config', self.config_window)
+        main_frame = self.builder_config.get_object('main', self.config_window)
         button_bar = self.builder_config.get_object('button_bar', self.config_window)
-        config_window = config
+        config_window = main_frame
         config_window = button_bar
-        self.builder_config.get_object('inter_capture_delay', self.config_window).insert(0, 1)
-        self.builder_config.get_object('image_type', self.config_window).current(0)
+
+        if self.output_directory is not None:
+            entry = self.builder_config.get_object('output_entry')
+            entry.configure(state='normal')
+            entry.insert(0, self.output_directory)
+            entry.configure(state='readonly')
+        if self.lp is not None:
+            entry = self.builder_config.get_object('lp_entry')
+            entry.configure(state='normal')
+            entry.insert(0, self.lp)
+            entry.configure(state='readonly')
+        if self.ptm is not None:
+            entry = self.builder_config.get_object('ptm_entry')
+            entry.configure(state='normal')
+            entry.insert(0, self.ptm)
+            entry.configure(state='readonly')
 
         self.builder_config.connect_callbacks(self)
+
+    def open_import_and_process(self):
+        if self.output_directory is None or self.lp is None or self.ptm is None:
+            messagebox.showerror(title='Error', message='Application Configurations have not been set')
+            return
+        if self.is_running:
+            messagebox.showerror(title='Error', message='You are currently processing files')
+            return
+
+        self.import_and_process_window = Toplevel(self.main_window, highlightthickness=0)
+        self.import_and_process_window.title('Import + Process Configuration')
+        self.import_and_process_window.geometry('460x115')
+        self.import_and_process_window.iconbitmap('arrow.ico')
+        self.import_and_process_window.grid_rowconfigure(1, weight=1)
+        self.import_and_process_window.grid_columnconfigure(0, weight=1)
+        self.import_and_process_window.lift()
+        self.import_and_process_window.focus_force()
+        self.import_and_process_window.grab_set()
+        self.center(self.import_and_process_window)
+        self.import_and_process_window.resizable(False, False)
+
+        # pygubu builder
+        self.builder_import_and_process = pygubu.Builder()
+        self.builder_import_and_process.add_resource_path(PROJECT_PATH)
+        self.builder_import_and_process.add_from_file(PROJECT_UI_IMPORT_AND_PROCESS)
+        main_frame = self.builder_import_and_process.get_object('main', self.import_and_process_window)
+        button_bar = self.builder_import_and_process.get_object('button_bar', self.import_and_process_window)
+        import_and_process_window = main_frame
+        import_and_process_window = button_bar
+        self.builder_import_and_process.get_object('image_type').current(0)
+
+        self.builder_import_and_process.connect_callbacks(self)
 
     def open_loading(self):
         self.loading_window = Toplevel(self.main_window, highlightthickness=0)
@@ -142,7 +194,7 @@ class TestApp:
     def open_logger(self):
         self.log_window = Toplevel(self.main_window, highlightthickness=0)
         self.log_window.title('Import Log')
-        self.log_window.geometry('400x170')
+        self.log_window.geometry('400x140')
         self.log_window.iconbitmap('arrow.ico')
         self.log_window.lift()
         self.log_window.focus_force()
@@ -158,64 +210,120 @@ class TestApp:
 
         self.builder_log.connect_callbacks(self)
 
-    def ask_directory(self, name_of_entry):
+    def cancel_config(self):
+        self.config_window.destroy()
+
+    def cancel_import_and_process(self):
+        self.import_and_process_window.destroy()
+
+    def cancel(self):
+        self.is_running = False
+        if self.current_process is not None:
+            self.current_process.terminate()
+
+    def read_config(self):
+        if os.path.exists('rti.config'):
+            self.config.read('rti.config')
+            if self.config['CONFIG']['output'] is not '':
+                try:
+                    self.check_path(self.config['CONFIG']['output'])
+                except InvalidPath as err:
+                    messagebox.showerror(title='Error', message=err)
+
+                self.output_directory = self.config['CONFIG']['output']
+            if self.config['CONFIG']['lp'] is not '':
+                try:
+                    self.read_lp_file(self.config['CONFIG']['lp'])
+                except (InvalidDomeSize, InvalidLPStructure) as err:
+                    self.best_fit_image_index = None
+                    self.dome_size = None
+                    messagebox.showerror(title='Error', message=err)
+                self.lp = self.config['CONFIG']['lp']
+            if self.config['CONFIG']['ptm'] is not '':
+                try:
+                    self.check_path(self.config['CONFIG']['ptm'])
+                    self.validate_ptm(self.config['CONFIG']['ptm'])
+                except (InvalidPath, InvalidProcessor) as err:
+                    messagebox.showerror(title='Error', message=err)
+                self.ptm = self.config['CONFIG']['ptm']
+        else:
+            self.config['CONFIG'] = {'output': '', 'lp': '', 'ptm': ''}
+            self.write_to_config()
+
+    def write_to_config(self):
+        with open('rti.config', 'w') as configfile:
+            self.config.write(configfile)
+
+    @staticmethod
+    def ask_directory(name_of_entry, builder):
         directory = filedialog.askdirectory()
         if directory == '':
             return
         if os.name == 'nt':
             directory = directory.replace('/', '\\')
-        entry = self.builder_config.get_object(name_of_entry)
+        entry = builder.get_object(name_of_entry)
         entry.configure(state='normal')
         entry.delete(0, END)
         entry.insert(0, directory)
         entry.configure(state='readonly')
 
-    def ask_open_file(self, name_of_entry, file_types):
+    @staticmethod
+    def ask_open_file(name_of_entry, file_types, builder):
         directory = filedialog.askopenfilename(filetypes=file_types)
         if directory == '':
             return
         if os.name == 'nt':
             directory = directory.replace('/', '\\')
-        entry = self.builder_config.get_object(name_of_entry)
+        entry = builder.get_object(name_of_entry)
         entry.configure(state='normal')
         entry.delete(0, END)
         entry.insert(0, directory)
         entry.configure(state='readonly')
 
     def select_output_directory(self):
-        self.ask_directory('output_entry')
+        self.ask_directory('output_entry', self.builder_config)
 
     def select_images_directory(self):
-        self.ask_directory('images_entry')
+        self.ask_directory('images_entry', self.builder_import_and_process)
         # used to determine the number of jpgs in the directory - print(len(glob.glob1(directory, '*.jpg')))
 
     def select_lp(self):
-        self.ask_open_file('lp_entry', (('lp files', '*.lp'), ('all files', '*.*')))
+        self.ask_open_file('lp_entry', (('lp files', '*.lp'), ('all files', '*.*')), self.builder_config)
 
     def select_ptm(self):
-        self.ask_open_file('ptm_entry', (('exe files', '*.exe'), ('all files', '*.*')))
+        self.ask_open_file('ptm_entry', (('exe files', '*.exe'), ('all files', '*.*')), self.builder_config)
 
     def confirm_config(self):
         try:
-            self.check_non_empty()
-            self.check_path()
-            self.read_lp_file()
-            self.is_config_valid()
-        except(EmptyEntry, NotDigit, InvalidPath, NotWithinRange, InvalidProcessor, InvalidLPStructure,
-               InvalidDomeSize) as err:
-            self.best_fit_image_index = None
-            self.dome_size = None
+            self.check_non_empty(['output_entry', 'lp_entry', 'ptm_entry'], self.builder_config)
+            self.check_path_entry(['output_entry', 'lp_entry', 'ptm_entry'], self.builder_config)
+            self.read_lp_file(self.builder_config.get_object('lp_entry').get())
+            self.validate_ptm(self.builder_config.get_object('ptm_entry').get())
+        except(EmptyEntry, InvalidPath, InvalidDomeSize, InvalidLPStructure, InvalidProcessor) as err:
+            messagebox.showerror(title='Error', message=err)
+            return
+        self.output_directory = self.builder_config.get_object('output_entry').get()
+        self.lp = self.builder_config.get_object('lp_entry').get()
+        self.ptm = self.builder_config.get_object('ptm_entry').get()
+        self.config['CONFIG']['output'] = self.output_directory
+        self.config['CONFIG']['lp'] = self.lp
+        self.config['CONFIG']['ptm'] = self.ptm
+        self.write_to_config()
+        self.config_window.destroy()
+
+    def confirm_import_and_process(self):
+        try:
+            self.check_non_empty(['name_entry', 'images_entry'], self.builder_import_and_process)
+            self.check_path_entry(['images_entry'], self.builder_import_and_process)
+            self.validate_images()
+        except(EmptyEntry, InvalidPath, IncorrectNumberOfImages) as err:
             messagebox.showerror(title='Error', message=err)
             return
         self.is_running = True
-        self.output_directory = self.builder_config.get_object('output_entry').get()
-        self.output_name = self.builder_config.get_object('name_entry').get()
-        self.delete_source = self.builder_config.get_object('delete_source').instate(['selected'])
-        self.inter_capture_delay = int(self.builder_config.get_object('inter_capture_delay', self.config_window).get())
-        self.image_type = self.builder_config.get_object('image_type').get()
-        self.images_directory = self.builder_config.get_object('images_entry').get()
-        self.lp = self.builder_config.get_object('lp_entry').get()
-        self.ptm = self.builder_config.get_object('ptm_entry').get()
+        self.output_name = self.builder_import_and_process.get_object('name_entry').get()
+        self.image_type = self.builder_import_and_process.get_object('image_type').get()
+        self.images_directory = self.builder_import_and_process.get_object('images_entry').get()
+
         if self.image_type == '.jpg':
             self.export_file_name = 'jpeg-exports'
         else:
@@ -224,14 +332,6 @@ class TestApp:
         self.open_loading()
         thread = Thread(target=self.import_images)
         thread.start()
-
-    def cancel_config(self):
-        self.config_window.destroy()
-
-    def cancel(self):
-        self.is_running = False
-        if self.current_process is not None:
-            self.current_process.terminate()
 
     def process_btn_click(self):
         if self.is_running:
@@ -248,24 +348,25 @@ class TestApp:
             else:
                 self.create_crop_box()
 
-    def check_non_empty(self):
-        config_object_list = ['output_entry', 'name_entry', 'inter_capture_delay', 'images_entry', 'lp_entry',
-                              'ptm_entry']
-        for config_object in config_object_list:
-            entry_contents = self.builder_config.get_object(config_object).get()
+    def check_non_empty(self, entry_list, builder):
+        for config_object in entry_list:
+            entry_contents = builder.get_object(config_object).get()
             if entry_contents == '':
                 raise EmptyEntry(config_object.split('_')[0])
 
-    def check_path(self):
-        config_object_list = ['output_entry', 'images_entry', 'lp_entry', 'ptm_entry']
-        for config_object in config_object_list:
-            entry_contents = self.builder_config.get_object(config_object).get()
-            if not os.path.exists(entry_contents):
-                raise InvalidPath(entry_contents)
+    def check_path_entry(self, entry_list, builder):
+        for config_object in entry_list:
+            entry_contents = builder.get_object(config_object).get()
+            self.check_path(entry_contents)
 
-    def read_lp_file(self):
+    @staticmethod
+    def check_path(path):
+        if not os.path.exists(path):
+            raise InvalidPath(path)
+
+    def read_lp_file(self, lp_path):
         best_fit_image_value = 3
-        lines = open(self.builder_config.get_object('lp_entry').get(), 'r').readlines()
+        lines = open(lp_path, 'r').readlines()
 
         for line in lines:
             values = (line.rstrip()).split(' ')
@@ -278,7 +379,7 @@ class TestApp:
                 else:
                     raise InvalidLPStructure(str(lines.index(line)))
             else:
-                func = lambda val: re.search('^-?0\.[0-9]+(E-[0-9])?$' , val)
+                func = lambda val: re.search('^(-?0?\.[0-9]+)|(-?[0-9]\.[0-9]+E-[1-9])$', val)
                 if func(values[1]) is not None and func(values[2]) is not None and func(values[3]) is not None and len(values) == 4:
                     value = abs(Decimal(values[1])) + abs(Decimal(values[2])) + abs(1 - Decimal(values[3])) # x y z
                     if value < best_fit_image_value:
@@ -287,25 +388,21 @@ class TestApp:
                 else:
                     raise InvalidLPStructure(str(lines.index(line)))
 
-    def is_config_valid(self):
-        # check for valid paths and if images are all of the same type or total is mod zero of the expected counts
-        config_object_list = ['inter_capture_delay', 'images_entry', 'ptm_entry']
-        for config_object in config_object_list:
-            entry_contents = self.builder_config.get_object(config_object).get()
-            if config_object == 'inter_capture_delay':
-                if not entry_contents.isdigit():
-                    raise NotDigit(entry_contents)
-                elif int(entry_contents) < 0 or int(entry_contents) > 100:
-                    raise NotWithinRange(int(entry_contents), 0, 100)
-            if config_object == 'images_entry':
-                count = len(glob.glob1(entry_contents, '*' + self.builder_config.get_object('image_type').get()))
-                if self.dome_size % count != 0 or count == 0:
-                    pass
-            if config_object == 'ptm_entry':
-                ptm_command = str(entry_contents) + ' -h'
-                process = subprocess.Popen(ptm_command, stdout=subprocess.PIPE)
-                if 'Copyright Hewlett-Packard Company 2001. All rights reserved.' not in str(process.communicate()):
-                    raise InvalidProcessor(entry_contents)
+    @staticmethod
+    def validate_ptm(ptm_path):
+        ptm_command = str(ptm_path) + ' -h'
+        process = subprocess.Popen(ptm_command, stdout=subprocess.PIPE)
+        if 'Copyright Hewlett-Packard Company 2001. All rights reserved.' not in str(process.communicate()):
+            raise InvalidProcessor(ptm_path)
+
+    def validate_images(self):
+        images_path = self.builder_import_and_process.get_object('images_entry').get()
+        count = len(glob.glob1(images_path, '*' + self.builder_import_and_process.get_object('image_type').get()))
+        if count == 0:
+            raise IncorrectNumberOfImages(images_path, self.dome_size)
+        else:
+            if self.dome_size % count != 0:
+                raise IncorrectNumberOfImages(images_path, self.dome_size)
 
     def create_folder_hierarchy(self, output_name):
         folder_list = ['assembly-files', 'finished-files', self.export_file_name, 'original-captures']
@@ -324,6 +421,7 @@ class TestApp:
         next_suffix = self.next_suffix()
         message = ""
         total_folders = 0
+        inter_capture_delay = 10
 
         for file in os.listdir(self.images_directory):
             if file.endswith(self.image_type):
@@ -351,7 +449,7 @@ class TestApp:
                     latest_taken = image_taken
                     prime = False
 
-                latest_threshold = latest_taken + timedelta(seconds=self.inter_capture_delay)
+                latest_threshold = latest_taken + timedelta(seconds=inter_capture_delay)
                 if image_taken > latest_threshold:
                     if no_in_folder == self.dome_size:
                         self.folders.append(folder_name)
@@ -387,9 +485,7 @@ class TestApp:
                         converted_image.quantize(number_colors=8)
                         converted_image.format = 'tif'
                         converted_image.save(filename=copy_export)
-
-                if self.delete_source:
-                    os.remove(image)
+                os.remove(image)
 
                 if no_in_folder == self.best_fit_image_index:
                     self.best_fit_image_images.append(copy_export)
@@ -407,13 +503,13 @@ class TestApp:
         self.loading_window.destroy()
         message += str(total_folders) + ' out  of ' + str(len(self.folders)) + ' folders were imported successfully'
         self.open_logger()
-        logger = self.builder_log.get_object('logger', self.config_window)
+        logger = self.builder_log.get_object('logger')
         logger.insert(INSERT, message)
         logger.configure(state='disabled')
         self.master.wait_window(self.log_window)
 
         self.create_crop_box()
-        self.config_window.destroy()
+        self.import_and_process_window.destroy()
 
     def next_suffix(self):
         next_suffix = 0
@@ -469,14 +565,9 @@ class TestApp:
     def reset_app_variables(self):
         self.has_update = False
 
-        self.output_directory = None
         self.images_directory = None
-        self.delete_source = None
-        self.inter_capture_delay = None
         self.image_type = None
         self.output_name = None
-        self.lp = None
-        self.ptm = None
 
         self.manager = None
         self.best_fit_image_index = None
