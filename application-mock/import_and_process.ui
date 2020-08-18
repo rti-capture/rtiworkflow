@@ -53,28 +53,6 @@
       </object>
     </child>
     <child>
-      <object class="tk.Frame" id="frame_1_2_3_4">
-        <property name="height">200</property>
-        <property name="width">200</property>
-        <layout manager="grid">
-          <property name="column">2</property>
-          <property name="propagate">True</property>
-          <property name="row">1</property>
-        </layout>
-        <child>
-          <object class="ttk.Combobox" id="image_type">
-            <property name="state">readonly</property>
-            <property name="values">.jpg .NEF .CR2</property>
-            <property name="width">6</property>
-            <layout manager="pack">
-              <property name="propagate">True</property>
-              <property name="side">left</property>
-            </layout>
-          </object>
-        </child>
-      </object>
-    </child>
-    <child>
       <object class="tk.Frame" id="frame_1_2_3">
         <property name="height">200</property>
         <property name="pady">4</property>

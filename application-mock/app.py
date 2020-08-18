@@ -2,6 +2,7 @@
 TODO:
 separate importing from processing
     tickbox for all the newly imported folders
+LP and image type should be independent of each other but arent
 """
 
 import os
@@ -50,11 +51,15 @@ class TestApp:
         self.builder_log = None
 
         self.output_directory = None
-        self.images_directory = None
-        self.image_type = None
-        self.output_name = None
+        self.inter_capture_delay = None
+        self.delete_source = False
+        self.image_type = '.jpg'
         self.lp = None
         self.ptm = None
+
+        self.output_name = None
+        self.images_directory = None
+        self.image_type = None
 
         self.manager = None
         self.best_fit_image_index = None
@@ -104,7 +109,7 @@ class TestApp:
 
         self.config_window = Toplevel(self.main_window, highlightthickness=0)
         self.config_window.title('Import + Process Configuration')
-        self.config_window.geometry('500x150')
+        self.config_window.geometry('510x170')
         self.config_window.iconbitmap('arrow.ico')
         self.config_window.grid_rowconfigure(1, weight=1)
         self.config_window.grid_columnconfigure(0, weight=1)
@@ -128,6 +133,23 @@ class TestApp:
             entry.configure(state='normal')
             entry.insert(0, self.output_directory)
             entry.configure(state='readonly')
+        if self.delete_source is not None:
+            if self.delete_source:
+                self.builder_config.get_object('delete_source').select()
+        if self.inter_capture_delay is not None:
+            self.builder_config.get_object('inter_capture_delay').delete(0, 'end')
+            self.builder_config.get_object('inter_capture_delay').insert(0, self.inter_capture_delay)
+        else:
+            self.builder_config.get_object('inter_capture_delay').insert(0, 1)
+        if self.image_type is not None:
+            count = 0
+            for image_type in ['.jpg', '.NEF', '.CR2']:
+                if self.image_type == image_type:
+                    self.builder_config.get_object('image_type').current(count)
+                    break
+                count += 1
+        else:
+            self.builder_config.get_object('image_type', self.config_window).current(0)
         if self.lp is not None:
             entry = self.builder_config.get_object('lp_entry')
             entry.configure(state='normal')
@@ -142,7 +164,7 @@ class TestApp:
         self.builder_config.connect_callbacks(self)
 
     def open_import_and_process(self):
-        if self.output_directory is None or self.lp is None or self.ptm is None:
+        if self.output_directory is None or self.delete_source is None or self.inter_capture_delay is None or self.image_type is None or self.lp is None or self.ptm is None:
             messagebox.showerror(title='Error', message='Application Configurations have not been set')
             return
         if self.is_running:
@@ -169,7 +191,6 @@ class TestApp:
         button_bar = self.builder_import_and_process.get_object('button_bar', self.import_and_process_window)
         import_and_process_window = main_frame
         import_and_process_window = button_bar
-        self.builder_import_and_process.get_object('image_type').current(0)
 
         self.builder_import_and_process.connect_callbacks(self)
 
@@ -227,27 +248,45 @@ class TestApp:
             if self.config['CONFIG']['output'] is not '':
                 try:
                     self.check_path(self.config['CONFIG']['output'])
+                    self.output_directory = self.config['CONFIG']['output']
                 except InvalidPath as err:
                     messagebox.showerror(title='Error', message=err)
 
-                self.output_directory = self.config['CONFIG']['output']
+            if self.config['CONFIG']['delete_source'] is not '':
+                if self.config['CONFIG']['delete_source'] == 'True':
+                    self.delete_source = True
+
+            if self.config['CONFIG']['inter_capture_delay'] is not '':
+                try:
+                    self.validate_inter_capture_delay(self.config['CONFIG']['inter_capture_delay'])
+                    self.inter_capture_delay = int(self.config['CONFIG']['inter_capture_delay'])
+                except (NotDigit, NotWithinRange) as err:
+                    messagebox.showerror(title='Error', message=err)
+
+            if self.config['CONFIG']['image_type'] is not '':
+                self.image_type = self.config['CONFIG']['image_type']
+                if self.image_type == '.jpg':
+                    self.export_file_name = 'jpeg-exports'
+                else:
+                    self.export_file_name = 'tiff-exports'
+
             if self.config['CONFIG']['lp'] is not '':
                 try:
                     self.read_lp_file(self.config['CONFIG']['lp'])
+                    self.lp = self.config['CONFIG']['lp']
                 except (InvalidDomeSize, InvalidLPStructure) as err:
                     self.best_fit_image_index = None
                     self.dome_size = None
                     messagebox.showerror(title='Error', message=err)
-                self.lp = self.config['CONFIG']['lp']
             if self.config['CONFIG']['ptm'] is not '':
                 try:
                     self.check_path(self.config['CONFIG']['ptm'])
                     self.validate_ptm(self.config['CONFIG']['ptm'])
+                    self.ptm = self.config['CONFIG']['ptm']
                 except (InvalidPath, InvalidProcessor) as err:
                     messagebox.showerror(title='Error', message=err)
-                self.ptm = self.config['CONFIG']['ptm']
         else:
-            self.config['CONFIG'] = {'output': '', 'lp': '', 'ptm': ''}
+            self.config['CONFIG'] = {'output': '', 'delete_source': '', 'inter_capture_delay': '', 'image_type': '', 'lp': '', 'ptm': ''}
             self.write_to_config()
 
     def write_to_config(self):
@@ -295,17 +334,27 @@ class TestApp:
 
     def confirm_config(self):
         try:
-            self.check_non_empty(['output_entry', 'lp_entry', 'ptm_entry'], self.builder_config)
+            self.check_non_empty(['output_entry', 'inter_capture_delay', 'lp_entry', 'ptm_entry'], self.builder_config)
             self.check_path_entry(['output_entry', 'lp_entry', 'ptm_entry'], self.builder_config)
             self.read_lp_file(self.builder_config.get_object('lp_entry').get())
+            self.validate_inter_capture_delay(self.builder_config.get_object('inter_capture_delay').get())
             self.validate_ptm(self.builder_config.get_object('ptm_entry').get())
         except(EmptyEntry, InvalidPath, InvalidDomeSize, InvalidLPStructure, InvalidProcessor) as err:
             messagebox.showerror(title='Error', message=err)
             return
         self.output_directory = self.builder_config.get_object('output_entry').get()
+        if self.builder_config.get_variable('var').get() == 1:
+            self.delete_source = True
+        else:
+            self.delete_source = False
+        self.inter_capture_delay = int(self.builder_config.get_object('inter_capture_delay').get())
+        self.image_type = self.builder_config.get_object('image_type').get()
         self.lp = self.builder_config.get_object('lp_entry').get()
         self.ptm = self.builder_config.get_object('ptm_entry').get()
         self.config['CONFIG']['output'] = self.output_directory
+        self.config['CONFIG']['delete_source'] = str(self.delete_source)
+        self.config['CONFIG']['inter_capture_delay'] = str(self.inter_capture_delay)
+        self.config['CONFIG']['image_type'] = self.image_type
         self.config['CONFIG']['lp'] = self.lp
         self.config['CONFIG']['ptm'] = self.ptm
         self.write_to_config()
@@ -321,9 +370,10 @@ class TestApp:
             return
         self.is_running = True
         self.output_name = self.builder_import_and_process.get_object('name_entry').get()
-        self.image_type = self.builder_import_and_process.get_object('image_type').get()
+        #self.image_type = self.builder_import_and_process.get_object('image_type').get()
         self.images_directory = self.builder_import_and_process.get_object('images_entry').get()
 
+        #add this on read and on confirm config
         if self.image_type == '.jpg':
             self.export_file_name = 'jpeg-exports'
         else:
@@ -395,9 +445,16 @@ class TestApp:
         if 'Copyright Hewlett-Packard Company 2001. All rights reserved.' not in str(process.communicate()):
             raise InvalidProcessor(ptm_path)
 
+    @staticmethod
+    def validate_inter_capture_delay(value):
+        if not value.isdigit():
+            raise NotDigit(value)
+        elif int(value) < 0 or int(value) > 100:
+            raise NotWithinRange(int(value), 0, 100)
+
     def validate_images(self):
         images_path = self.builder_import_and_process.get_object('images_entry').get()
-        count = len(glob.glob1(images_path, '*' + self.builder_import_and_process.get_object('image_type').get()))
+        count = len(glob.glob1(images_path, '*' + self.image_type))
         if count == 0:
             raise IncorrectNumberOfImages(images_path, self.dome_size)
         else:
@@ -421,7 +478,6 @@ class TestApp:
         next_suffix = self.next_suffix()
         message = ""
         total_folders = 0
-        inter_capture_delay = 10
 
         for file in os.listdir(self.images_directory):
             if file.endswith(self.image_type):
@@ -449,7 +505,7 @@ class TestApp:
                     latest_taken = image_taken
                     prime = False
 
-                latest_threshold = latest_taken + timedelta(seconds=inter_capture_delay)
+                latest_threshold = latest_taken + timedelta(seconds=self.inter_capture_delay)
                 if image_taken > latest_threshold:
                     if no_in_folder == self.dome_size:
                         self.folders.append(folder_name)
@@ -485,7 +541,8 @@ class TestApp:
                         converted_image.quantize(number_colors=8)
                         converted_image.format = 'tif'
                         converted_image.save(filename=copy_export)
-                os.remove(image)
+                if self.delete_source:
+                    os.remove(image)
 
                 if no_in_folder == self.best_fit_image_index:
                     self.best_fit_image_images.append(copy_export)
@@ -507,6 +564,7 @@ class TestApp:
         logger.insert(INSERT, message)
         logger.configure(state='disabled')
         self.master.wait_window(self.log_window)
+        self.write_to_config()
 
         self.create_crop_box()
         self.import_and_process_window.destroy()
@@ -566,12 +624,9 @@ class TestApp:
         self.has_update = False
 
         self.images_directory = None
-        self.image_type = None
         self.output_name = None
 
         self.manager = None
-        self.best_fit_image_index = None
-        self.dome_size = None
         self.crop_box_listener = None
 
         self.export_file_name = None

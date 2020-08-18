@@ -45,6 +45,24 @@ class InvalidProcessor(Exception):
         return self.path + ' is not a valid PTM or HSH executable'
 
 
+class NotDigit(Exception):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return str(self.value) + ' is not a valid int'
+
+
+class NotWithinRange(Exception):
+    def __init__(self, value, min_value, max_value):
+        self.value = value
+        self.min_value = min_value
+        self.max_value = max_value
+
+    def __str__(self):
+        return str(self.value) + ' -> is not within Range(' + str(self.min_value) + ', ' + str(self.max_value) + ')'
+
+
 class ProcessingFailed(Exception):
     def __init__(self, message):
         self.message = message
