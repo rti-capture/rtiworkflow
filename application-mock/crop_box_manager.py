@@ -90,27 +90,27 @@ class CropBoxManager:
         offset = 2
         if widget.position == 'L':
             x = widget.winfo_x() - widget._drag_start_x + event.x
-            Rx = self.crop_line_R.winfo_x()
+            r_x = self.crop_line_R.winfo_x()
             x = x if x >= self.min_x else self.min_x
-            x = x if x <= Rx - self.crop_line_offset - offset else Rx - self.crop_line_offset - offset
+            x = x if x <= r_x - self.crop_line_offset - offset else r_x - self.crop_line_offset - offset
             y = widget.winfo_y()
         elif widget.position == 'R':
             x = widget.winfo_x() - widget._drag_start_x + event.x
-            Lx = self.crop_line_L.winfo_x()
-            x = x if x >= Lx + self.crop_line_offset + offset else Lx + self.crop_line_offset + offset
+            l_x = self.crop_line_L.winfo_x()
+            x = x if x >= l_x + self.crop_line_offset + offset else l_x + self.crop_line_offset + offset
             x = x if x <= self.max_x else self.max_x
             y = widget.winfo_y()
         elif widget.position == 'T':
             x = widget.winfo_x()
             y = widget.winfo_y() - widget._drag_start_y + event.y
-            By = self.crop_line_B.winfo_y()
+            b_y = self.crop_line_B.winfo_y()
             y = y if y >= self.min_y else self.min_y
-            y = y if y <= By - self.crop_line_offset - offset else By - self.crop_line_offset - offset
+            y = y if y <= b_y - self.crop_line_offset - offset else b_y - self.crop_line_offset - offset
         else:
             x = widget.winfo_x()
             y = widget.winfo_y() - widget._drag_start_y + event.y
-            Ty = self.crop_line_T.winfo_y()
-            y = y if y >= Ty + self.crop_line_offset + offset else Ty + self.crop_line_offset + offset
+            t_y = self.crop_line_T.winfo_y()
+            y = y if y >= t_y + self.crop_line_offset + offset else t_y + self.crop_line_offset + offset
             y = y if y <= self.max_y else self.max_y
         crop_x = str(self.crop_line_L.winfo_x() + self.crop_line_offset - int(
             ((self.parent.winfo_width() - self.photo.width()) / 2)))
