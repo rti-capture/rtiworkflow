@@ -14,6 +14,8 @@ import shutil
 import configparser
 import time as t
 import _strptime
+import rawpy
+import imageio
 from datetime import *
 from crop_box_manager import *
 from exceptions import *
@@ -21,7 +23,6 @@ from threading import Thread
 from tkinter import *
 from tkinter import filedialog
 from tkinter import messagebox
-from wand.image import Image as ImageWand
 from PIL import Image, ImageTk
 from decimal import Decimal
 
@@ -370,7 +371,6 @@ class TestApp:
             return
         self.is_running = True
         self.output_name = self.builder_import_and_process.get_object('name_entry').get()
-        #self.image_type = self.builder_import_and_process.get_object('image_type').get()
         self.images_directory = self.builder_import_and_process.get_object('images_entry').get()
 
         #add this on read and on confirm config
@@ -537,10 +537,10 @@ class TestApp:
                 if self.image_type == '.jpg':
                     shutil.copy(src=image, dst=copy_export)
                 else:
-                    with ImageWand(filename=image) as converted_image:
-                        converted_image.depth = 8
-                        converted_image.format = 'tif'
-                        converted_image.save(filename=copy_export)
+                    with rawpy.imread(image) as raw:
+                        rgb = raw.postprocess(gamma=(1, 1), no_auto_bright=True, output_bps=8)
+                    imageio.imsave(copy_export, rgb)
+
                 if self.delete_source:
                     os.remove(image)
 

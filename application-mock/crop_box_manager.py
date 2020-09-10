@@ -17,6 +17,10 @@ class CropBoxManager:
         self.scale_x = 1000 / self.label.winfo_width()
         self.scale_y = 1000 / self.label.winfo_height()
         self.crop_line_offset = 4
+        self.min_x = None
+        self.max_x = None
+        self.min_y = None
+        self.max_y = None
 
         # sets initial min and max values for crop lines
         self.set_max_and_min()
@@ -82,33 +86,33 @@ class CropBoxManager:
 
     def on_start(self, event):
         widget = event.widget
-        widget._drag_start_x = event.x
-        widget._drag_start_y = event.y
+        widget.drag_start_x = event.x
+        widget.drag_start_y = event.y
 
     def on_drag(self, event):
         widget = event.widget
         offset = 2
         if widget.position == 'L':
-            x = widget.winfo_x() - widget._drag_start_x + event.x
+            x = widget.winfo_x() - widget.drag_start_x + event.x
             r_x = self.crop_line_R.winfo_x()
             x = x if x >= self.min_x else self.min_x
             x = x if x <= r_x - self.crop_line_offset - offset else r_x - self.crop_line_offset - offset
             y = widget.winfo_y()
         elif widget.position == 'R':
-            x = widget.winfo_x() - widget._drag_start_x + event.x
+            x = widget.winfo_x() - widget.drag_start_x + event.x
             l_x = self.crop_line_L.winfo_x()
             x = x if x >= l_x + self.crop_line_offset + offset else l_x + self.crop_line_offset + offset
             x = x if x <= self.max_x else self.max_x
             y = widget.winfo_y()
         elif widget.position == 'T':
             x = widget.winfo_x()
-            y = widget.winfo_y() - widget._drag_start_y + event.y
+            y = widget.winfo_y() - widget.drag_start_y + event.y
             b_y = self.crop_line_B.winfo_y()
             y = y if y >= self.min_y else self.min_y
             y = y if y <= b_y - self.crop_line_offset - offset else b_y - self.crop_line_offset - offset
         else:
             x = widget.winfo_x()
-            y = widget.winfo_y() - widget._drag_start_y + event.y
+            y = widget.winfo_y() - widget.drag_start_y + event.y
             t_y = self.crop_line_T.winfo_y()
             y = y if y >= t_y + self.crop_line_offset + offset else t_y + self.crop_line_offset + offset
             y = y if y <= self.max_y else self.max_y
