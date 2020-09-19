@@ -1,0 +1,310 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface version="1.0">
+  <object class="tk.Frame" id="main">
+    <property name="height">200</property>
+    <property name="width">200</property>
+    <layout manager="grid">
+      <property name="padx">10</property>
+      <property name="pady">10</property>
+      <property name="propagate">True</property>
+      <property name="sticky">nw</property>
+    </layout>
+    <child>
+      <object class="tk.Frame" id="frame_2">
+        <property name="height">200</property>
+        <property name="pady">4</property>
+        <property name="width">200</property>
+        <layout manager="grid">
+          <property name="propagate">True</property>
+          <property name="sticky">w</property>
+        </layout>
+        <child>
+          <object class="tk.Label" id="label_1">
+            <property name="compound">bottom</property>
+            <property name="font">TkHeadingFont</property>
+            <property name="takefocus">true</property>
+            <property name="text" translatable="yes">Destination Folder</property>
+            <layout manager="pack">
+              <property name="propagate">True</property>
+              <property name="side">top</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="tk.Frame" id="frame_4_5">
+        <property name="height">200</property>
+        <property name="padx">5</property>
+        <property name="width">200</property>
+        <layout manager="grid">
+          <property name="column">1</property>
+          <property name="propagate">True</property>
+          <property name="row">0</property>
+        </layout>
+        <child>
+          <object class="tk.Entry" id="output_entry">
+            <property name="state">readonly</property>
+            <property name="width">50</property>
+            <layout manager="pack">
+              <property name="propagate">True</property>
+              <property name="side">top</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="tk.Frame" id="frame_8_9">
+        <property name="height">200</property>
+        <property name="width">200</property>
+        <layout manager="grid">
+          <property name="column">2</property>
+          <property name="propagate">True</property>
+          <property name="row">0</property>
+        </layout>
+        <child>
+          <object class="tk.Button" id="button_1">
+            <property name="command">select_output_directory</property>
+            <property name="text" translatable="yes">Select</property>
+            <property name="width">7</property>
+            <layout manager="pack">
+              <property name="propagate">True</property>
+              <property name="side">top</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="tk.Frame" id="frame_1">
+        <property name="height">200</property>
+        <property name="width">200</property>
+        <layout manager="grid">
+          <property name="column">0</property>
+          <property name="propagate">True</property>
+          <property name="row">1</property>
+        </layout>
+        <child>
+          <object class="tk.Checkbutton" id="delete_source">
+            <property name="text" translatable="yes">Delete source files</property>
+            <property name="variable">int:var</property>
+            <layout manager="pack">
+              <property name="propagate">True</property>
+              <property name="side">top</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="tk.Frame" id="frame_1_2_3_4">
+        <property name="height">200</property>
+        <property name="width">200</property>
+        <layout manager="grid">
+          <property name="column">1</property>
+          <property name="propagate">True</property>
+          <property name="row">1</property>
+        </layout>
+        <child>
+          <object class="tk.Label" id="label_4">
+            <property name="text" translatable="yes">Inter Capture Delay</property>
+            <layout manager="pack">
+              <property name="propagate">True</property>
+              <property name="side">left</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="tk.Spinbox" id="inter_capture_delay">
+            <property name="from_">0</property>
+            <property name="increment">1</property>
+            <property name="to">100</property>
+            <property name="width">7</property>
+            <layout manager="pack">
+              <property name="padx">4</property>
+              <property name="propagate">True</property>
+              <property name="side">left</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="ttk.Combobox" id="image_type">
+            <property name="state">readonly</property>
+            <property name="values">.jpg .NEF .CR2</property>
+            <property name="width">18</property>
+            <layout manager="pack">
+              <property name="propagate">True</property>
+              <property name="side">left</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="tk.Frame" id="frame_1_2">
+        <property name="height">200</property>
+        <property name="pady">4</property>
+        <property name="width">200</property>
+        <layout manager="grid">
+          <property name="column">0</property>
+          <property name="propagate">True</property>
+          <property name="row">2</property>
+          <property name="sticky">w</property>
+        </layout>
+        <child>
+          <object class="tk.Label" id="label_1_2_3">
+            <property name="text" translatable="yes">LP File</property>
+            <layout manager="pack">
+              <property name="propagate">True</property>
+              <property name="side">top</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="tk.Frame" id="frame_3_4">
+        <property name="height">200</property>
+        <property name="width">200</property>
+        <layout manager="grid">
+          <property name="column">1</property>
+          <property name="propagate">True</property>
+          <property name="row">2</property>
+        </layout>
+        <child>
+          <object class="tk.Entry" id="lp_entry">
+            <property name="state">readonly</property>
+            <property name="width">50</property>
+            <layout manager="pack">
+              <property name="propagate">True</property>
+              <property name="side">top</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="tk.Frame" id="frame_5">
+        <property name="height">200</property>
+        <property name="width">200</property>
+        <layout manager="grid">
+          <property name="column">2</property>
+          <property name="propagate">True</property>
+          <property name="row">2</property>
+        </layout>
+        <child>
+          <object class="tk.Button" id="button_1_2_3">
+            <property name="command">select_lp</property>
+            <property name="text" translatable="yes">Browse</property>
+            <property name="width">7</property>
+            <layout manager="pack">
+              <property name="propagate">True</property>
+              <property name="side">top</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="tk.Frame" id="frame_7">
+        <property name="height">200</property>
+        <property name="pady">4</property>
+        <property name="width">200</property>
+        <layout manager="grid">
+          <property name="column">0</property>
+          <property name="propagate">True</property>
+          <property name="row">3</property>
+          <property name="sticky">w</property>
+        </layout>
+        <child>
+          <object class="tk.Label" id="label_4_1">
+            <property name="text" translatable="yes">PTM Fit</property>
+            <layout manager="pack">
+              <property name="propagate">True</property>
+              <property name="side">top</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="tk.Frame" id="frame_8">
+        <property name="height">200</property>
+        <property name="width">200</property>
+        <layout manager="grid">
+          <property name="column">1</property>
+          <property name="propagate">True</property>
+          <property name="row">3</property>
+        </layout>
+        <child>
+          <object class="tk.Entry" id="ptm_entry">
+            <property name="state">readonly</property>
+            <property name="width">50</property>
+            <layout manager="pack">
+              <property name="propagate">True</property>
+              <property name="side">top</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="tk.Frame" id="frame_9">
+        <property name="height">200</property>
+        <property name="width">200</property>
+        <layout manager="grid">
+          <property name="column">2</property>
+          <property name="propagate">True</property>
+          <property name="row">3</property>
+        </layout>
+        <child>
+          <object class="tk.Button" id="button_4">
+            <property name="command">select_ptm</property>
+            <property name="text" translatable="yes">Browse</property>
+            <property name="width">7</property>
+            <layout manager="pack">
+              <property name="propagate">True</property>
+              <property name="side">top</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="tk.Frame" id="button_bar">
+    <property name="height">200</property>
+    <property name="width">200</property>
+    <layout manager="grid">
+      <property name="padx">2</property>
+      <property name="pady">2</property>
+      <property name="propagate">True</property>
+      <property name="row">2</property>
+      <property name="sticky">se</property>
+    </layout>
+    <child>
+      <object class="tk.Button" id="button_1_2">
+        <property name="command">confirm_config</property>
+        <property name="text" translatable="yes">Confirm</property>
+        <property name="width">7</property>
+        <layout manager="pack">
+          <property name="pady">3</property>
+          <property name="propagate">True</property>
+          <property name="side">left</property>
+        </layout>
+      </object>
+    </child>
+    <child>
+      <object class="tk.Button" id="button_3">
+        <property name="command">cancel_config</property>
+        <property name="text" translatable="yes">Cancel</property>
+        <layout manager="pack">
+          <property name="padx">3</property>
+          <property name="pady">3</property>
+          <property name="propagate">True</property>
+          <property name="side">right</property>
+        </layout>
+      </object>
+    </child>
+  </object>
+</interface>

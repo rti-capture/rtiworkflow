@@ -1,10 +1,3 @@
-"""
-TODO:
-separate importing from processing
-    tickbox for all the newly imported folders
-LP and image type should be independent of each other but arent
-"""
-
 import os
 import pygubu
 import subprocess
@@ -13,26 +6,41 @@ import glob
 import shutil
 import configparser
 import time as t
-import _strptime
 import rawpy
 import imageio
+import win32api
 from datetime import *
 from crop_box_manager import *
 from exceptions import *
 from threading import Thread
+from tkinter.ttk import *
+from pygubu.builder import ttkstdwidgets
+from pygubu.builder import tkstdwidgets
+from pygubu.builder import widgets
+from pygubu.builder.widgets import tkscrollbarhelper
 from tkinter import *
 from tkinter import filedialog
 from tkinter import messagebox
 from PIL import Image, ImageTk
 from decimal import Decimal
 
-PROJECT_PATH = os.path.dirname(__file__)
-PROJECT_UI_MAIN = os.path.join(PROJECT_PATH, 'main.ui')
-PROJECT_UI_CONFIG = os.path.join(PROJECT_PATH, 'config.ui')
-PROJECT_UI_IMPORT_AND_PROCESS = os.path.join(PROJECT_PATH, 'import_and_process.ui')
-PROJECT_UI_LOADING = os.path.join(PROJECT_PATH, 'loading.ui')
-PROJECT_UI_LOG = os.path.join(PROJECT_PATH, 'log.ui')
 
+def resource_path(relative_path):
+    try:
+        base_path = win32api.GetLongPathName(sys._MEIPASS)
+    except Exception:
+        base_path = os.environ.get("_MEIPASS", os.path.abspath("."))
+    return os.path.join(base_path, relative_path)
+
+CREATE_NO_WINDOW = 0x08000000
+PROJECT_PATH = os.path.dirname(__file__)
+PROJECT_ICON = os.path.join(PROJECT_PATH, resource_path('arrow.ico'))
+PROJECT_UI_MAIN = os.path.join(PROJECT_PATH, resource_path('main.ui'))
+PROJECT_UI_CONFIG = os.path.join(PROJECT_PATH, resource_path('config.ui'))
+PROJECT_UI_IMPORT_AND_PROCESS = os.path.join(PROJECT_PATH, resource_path('import_and_process.ui'))
+PROJECT_UI_LOADING = os.path.join(PROJECT_PATH, resource_path('loading.ui'))
+PROJECT_UI_LOG = os.path.join(PROJECT_PATH, resource_path('log.ui'))
+PROJECT_CONFIG = os.path.join(PROJECT_PATH, resource_path('rti.config'))
 
 class TestApp:
     def __init__(self, master):
@@ -111,7 +119,7 @@ class TestApp:
         self.config_window = Toplevel(self.main_window, highlightthickness=0)
         self.config_window.title('Import + Process Configuration')
         self.config_window.geometry('510x170')
-        self.config_window.iconbitmap('arrow.ico')
+        self.config_window.iconbitmap(PROJECT_ICON)
         self.config_window.grid_rowconfigure(1, weight=1)
         self.config_window.grid_columnconfigure(0, weight=1)
         self.config_window.lift()
@@ -175,7 +183,7 @@ class TestApp:
         self.import_and_process_window = Toplevel(self.main_window, highlightthickness=0)
         self.import_and_process_window.title('Import + Process Configuration')
         self.import_and_process_window.geometry('460x115')
-        self.import_and_process_window.iconbitmap('arrow.ico')
+        self.import_and_process_window.iconbitmap(PROJECT_ICON)
         self.import_and_process_window.grid_rowconfigure(1, weight=1)
         self.import_and_process_window.grid_columnconfigure(0, weight=1)
         self.import_and_process_window.lift()
@@ -213,11 +221,11 @@ class TestApp:
 
         self.builder_loading.connect_callbacks(self)
 
-    def open_logger(self):
+    def open_logger(self, name):
         self.log_window = Toplevel(self.main_window, highlightthickness=0)
-        self.log_window.title('Import Log')
-        self.log_window.geometry('400x140')
-        self.log_window.iconbitmap('arrow.ico')
+        self.log_window.title(name + ' Log')
+        self.log_window.geometry('450x140')
+        self.log_window.iconbitmap(PROJECT_ICON)
         self.log_window.lift()
         self.log_window.focus_force()
         self.log_window.grab_set()
@@ -244,8 +252,8 @@ class TestApp:
             self.current_process.terminate()
 
     def read_config(self):
-        if os.path.exists('rti.config'):
-            self.config.read('rti.config')
+        if os.path.exists(PROJECT_CONFIG):
+            self.config.read(PROJECT_CONFIG)
             if self.config['CONFIG']['output'] is not '':
                 try:
                     self.check_path(self.config['CONFIG']['output'])
@@ -273,9 +281,10 @@ class TestApp:
 
             if self.config['CONFIG']['lp'] is not '':
                 try:
+                    self.check_path(self.config['CONFIG']['lp'])
                     self.read_lp_file(self.config['CONFIG']['lp'])
                     self.lp = self.config['CONFIG']['lp']
-                except (InvalidDomeSize, InvalidLPStructure) as err:
+                except (InvalidPath, InvalidDomeSize, InvalidLPStructure) as err:
                     self.best_fit_image_index = None
                     self.dome_size = None
                     messagebox.showerror(title='Error', message=err)
@@ -287,11 +296,12 @@ class TestApp:
                 except (InvalidPath, InvalidProcessor) as err:
                     messagebox.showerror(title='Error', message=err)
         else:
-            self.config['CONFIG'] = {'output': '', 'delete_source': '', 'inter_capture_delay': '', 'image_type': '', 'lp': '', 'ptm': ''}
+            self.config['CONFIG'] = {'output': '', 'delete_source': '', 'inter_capture_delay': '', 'image_type': '',
+                                     'lp': '', 'ptm': ''}
             self.write_to_config()
 
     def write_to_config(self):
-        with open('rti.config', 'w') as configfile:
+        with open(PROJECT_CONFIG, 'w') as configfile:
             self.config.write(configfile)
 
     @staticmethod
@@ -373,7 +383,7 @@ class TestApp:
         self.output_name = self.builder_import_and_process.get_object('name_entry').get()
         self.images_directory = self.builder_import_and_process.get_object('images_entry').get()
 
-        #add this on read and on confirm config
+        # add this on read and on confirm config
         if self.image_type == '.jpg':
             self.export_file_name = 'jpeg-exports'
         else:
@@ -430,8 +440,9 @@ class TestApp:
                     raise InvalidLPStructure(str(lines.index(line)))
             else:
                 func = lambda val: re.search('^(-?0?\.[0-9]+)|(-?[0-9]\.[0-9]+E-[1-9])$', val)
-                if func(values[1]) is not None and func(values[2]) is not None and func(values[3]) is not None and len(values) == 4:
-                    value = abs(Decimal(values[1])) + abs(Decimal(values[2])) + abs(1 - Decimal(values[3])) # x y z
+                if func(values[1]) is not None and func(values[2]) is not None and func(values[3]) is not None and len(
+                        values) == 4:
+                    value = abs(Decimal(values[1])) + abs(Decimal(values[2])) + abs(1 - Decimal(values[3]))  # x y z
                     if value < best_fit_image_value:
                         self.best_fit_image_index = lines.index(line)
                         best_fit_image_value = value
@@ -441,7 +452,7 @@ class TestApp:
     @staticmethod
     def validate_ptm(ptm_path):
         ptm_command = str(ptm_path) + ' -h'
-        process = subprocess.Popen(ptm_command, stdout=subprocess.PIPE)
+        process = subprocess.Popen(ptm_command, stdout=subprocess.PIPE, creationflags=CREATE_NO_WINDOW)
         if 'Copyright Hewlett-Packard Company 2001. All rights reserved.' not in str(process.communicate()):
             raise InvalidProcessor(ptm_path)
 
@@ -479,9 +490,9 @@ class TestApp:
         message = ""
         total_folders = 0
 
-        for file in os.listdir(self.images_directory):
-            if file.endswith(self.image_type):
-                images.append(os.path.join(self.images_directory, file))
+        os.chdir(self.images_directory)
+        for file in glob.glob('*' + self.image_type):
+            images.append(os.path.join(self.images_directory, file))
 
         progress_bar = self.builder_loading.get_object('progress_bar')
         increment = 100 / len(images)
@@ -559,7 +570,7 @@ class TestApp:
 
         self.loading_window.destroy()
         message += str(total_folders) + ' out  of ' + str(len(self.folders)) + ' folders were imported successfully'
-        self.open_logger()
+        self.open_logger('Import')
         logger = self.builder_log.get_object('logger')
         logger.insert(INSERT, message)
         logger.configure(state='disabled')
@@ -595,24 +606,25 @@ class TestApp:
             else:
                 new_lp = self.output_directory + self.separator + folder + self.separator + 'assembly-files'
                 shutil.copy(self.lp, new_lp)
-                ptm_command = self.ptm + ' -i ' + new_lp + self.separator + os.path.basename(
-                    os.path.normpath(self.lp)) + \
-                              ' -o ' + self.output_directory + self.separator + folder + self.separator + \
-                              'finished-files' + self.separator + folder + '.ptm' + \
-                              ' -crop ' + self.cropping_dimensions[self.folders.index(folder)]
-                self.current_process = subprocess.Popen(ptm_command,
-                                                        cwd=self.output_directory + self.separator + folder + self.separator + self.export_file_name,
-                                                        stdout=subprocess.PIPE)
-                self.current_process.wait()
-                if not self.is_running:
-                    self.reset_app_variables()
-                    self.clear_lists()
-                    self.loading_window.destroy()
-                    return
+                os.chdir(new_lp)
+                if len(glob.glob('*.lp')) is 1:
+                    ptm_command = self.ptm + ' -i ' + new_lp + self.separator + glob.glob('*.lp')[0] + \
+                                  ' -o ' + self.output_directory + self.separator + folder + self.separator + \
+                                  'finished-files' + self.separator + folder + '.ptm' + \
+                                  ' -crop ' + self.cropping_dimensions[self.folders.index(folder)]
+                    self.current_process = subprocess.Popen(ptm_command,
+                                                            cwd=self.output_directory + self.separator + folder + self.separator + self.export_file_name,
+                                                            stdout=subprocess.PIPE, creationflags=CREATE_NO_WINDOW)
+                    self.current_process.wait()
+                    if not self.is_running:
+                        self.reset_app_variables()
+                        self.clear_lists()
+                        self.loading_window.destroy()
+                        return
 
-                if progress_bar.winfo_exists():
-                    progress_bar['value'] += increment
-                # check log output of ptmfit to see if it was successful
+                    if progress_bar.winfo_exists():
+                        progress_bar['value'] += increment
+                #  add a logger for processing
 
         t.sleep(0.5)
         self.is_running = False
@@ -694,7 +706,7 @@ if __name__ == '__main__':
     root = Tk()
     root.title('RTI Card Importer + Processor')
     root.geometry('600x400')
-    root.iconbitmap('arrow.ico')
+    root.iconbitmap(PROJECT_ICON)
     root.grid_rowconfigure(1, weight=1)
     root.grid_columnconfigure(0, weight=1)
     app = TestApp(root)
