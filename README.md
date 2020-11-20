@@ -7,4 +7,4 @@ Converts raw images to (16 bit?) tiff - 8 bit for now to help ptmfitter
 
 Allows a crop box to be drawn for ptmfit to use
 
-possibly option to do illumination correction
+
