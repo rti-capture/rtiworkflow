@@ -1,3 +1,7 @@
+/* RTI workflow python
+* handles the crop box
+* Authors: Ben Thompson and Kirk Martinez 2020, at University of Southampton
+*/
 from crop_line import *
 
 
