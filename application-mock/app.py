@@ -1,3 +1,6 @@
+/* main RTI workflow python
+* Authors: Ben Thompson and Kirk Martinez 2020, at University of Southampton
+*/
 import os
 import pygubu
 import subprocess
