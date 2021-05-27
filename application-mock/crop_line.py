@@ -1,3 +1,6 @@
+/* main RTI workflow python
+* Authors: Ben Thompson  2020, at University of Southampton
+*/
 from tkinter import *
 
 
