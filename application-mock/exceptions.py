@@ -1,3 +1,6 @@
+/* main RTI workflow python
+* Authors: Ben Thompson  2020, at University of Southampton
+*/
 class EmptyEntry(Exception):
 
     def __str__(self):
